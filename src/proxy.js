@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 
 export function proxy(request) {
-    const token = request.cookies.get("token");
+    const token =
+        request.cookies.get("authjs.session-token")?.value ||
+        request.cookies.get("__Secure-authjs.session-token")?.value ||
+        request.cookies.get("next-auth.session-token")?.value ||
+        request.cookies.get("__Secure-next-auth.session-token")?.value ||
+        request.cookies.get("token")?.value;
     const { pathname } = request.nextUrl;
 
     const publicRoutes = ["/"];

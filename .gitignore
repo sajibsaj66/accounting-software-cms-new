@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+text.model.demo
 
 # next.js
 /.next/

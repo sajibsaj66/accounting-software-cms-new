@@ -1,41 +1,45 @@
 "use client";
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 export default function LoginPage() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
 
-    const handleLogin = async () => {
+
+
+    const {   register,
+    handleSubmit,  formState: { errors } } = useForm();
+
+    const handleLogin = async (data) => {
+        const email = data.email;
+        const password = data.password;
         if (!email || !password) {
             alert("Email and password required");
             return;
         }
 
         setLoading(true);
-
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/signin2`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password })
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
             });
 
-            const data = await res.json();
-
-            if (data.success) {
-                // ✅ Save token in cookie
-                document.cookie = `token=${data.token}; path=/`;
-
-                // ✅ Redirect properly
-                window.location.href = "/dashboard";
-            } else {
-                alert(data.error);
+            if (result?.error) {
+                alert("Login failed. Please check your credentials.");
+                return;
             }
-        } catch (err) {
-            console.error(err);
-            alert("Server error");
+
+            router.push("/dashboard");
+            router.refresh();
+        } catch (error) {
+            console.error(error);
+            alert(error?.message || "Server error");
         } finally {
             setLoading(false);
         }
@@ -56,25 +60,22 @@ export default function LoginPage() {
                 </div>
 
                 {/* EMAIL */}
-                <div>
+                <form onSubmit={handleSubmit(handleLogin)}>
                     <label className="text-sm text-gray-600">Email</label>
                     <input
                         type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        {...register("email", { required: true })}
                         className="w-full border rounded-lg px-3 py-2 text-sm"
                         placeholder="admin@demo.com"
                     />
-                </div>
-
-                {/* PASSWORD */}
+                    {errors.email && <span className="text-red-400 text-xs">Email field is required</span>}
+                    {/* PASSWORD */}
                 <div>
                     <label className="text-sm text-gray-600">Password</label>
                     <div className="relative">
                         <input
                             type={showPassword ? "text" : "password"}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                           {...register("password", { required: true })}
                             className="w-full border rounded-lg px-3 py-2 pr-10 text-sm"
                             placeholder="••••••••"
                         />
@@ -86,16 +87,21 @@ export default function LoginPage() {
                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                     </div>
-                </div>
-
-                {/* LOGIN BUTTON */}
+                    </div>
+                    {errors.password && <span className="text-red-400 text-xs">Password field is required</span>}
+                     {/* LOGIN BUTTON */}
                 <button
-                    onClick={handleLogin}
+                  type="submit"
                     disabled={loading}
                     className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-60"
                 >
-                    {loading ? "Logging in..." : "Login"}
+              {loading ? "Logging in..." : "Log in"}
                 </button>
+                </form>
+
+                
+
+               
 
             </div>
         </div>

@@ -1,8 +1,45 @@
-export default function Customer({ customers = [], search = "" }) {
-    // Filter customers
-    const filteredCustomers = customers.filter((c) =>
-        c.customer_name.toLowerCase().includes(search.toLowerCase())
-    );
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+
+export default function Customer({ search = "" }) {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    const {
+        data: customerData = [],
+        isLoading,
+        isError,
+    } = useQuery({
+        queryKey: ["sales-customers"],
+        queryFn: async () => {
+            const res = await axios.get(
+                `${process.env.NEXT_PUBLIC_BASE_URL}/get-sales-customers`,
+            );
+            return res?.data?.data ?? [];
+        },
+    });
+
+    const filteredCustomers = customerData.filter((c) => {
+        if (!normalizedSearch) return true;
+        return (
+            String(c?.customer_name ?? "").toLowerCase().includes(normalizedSearch) ||
+            String(c?.customer_email ?? "").toLowerCase().includes(normalizedSearch) ||
+            String(c?.customer_phone ?? "").toLowerCase().includes(normalizedSearch)
+        );
+    });
+
+    const formatDate = (value) => {
+        if (!value) return "-";
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? "-" : date.toISOString().split("T")[0];
+    };
+
+    if (isLoading) {
+        return <div className="mt-5 text-sm text-zinc-500">Loading customers...</div>;
+    }
+
+    if (isError) {
+        return <div className="mt-5 text-sm text-red-500">Failed to load customers.</div>;
+    }
 
     return (
         <div className="bg-white border rounded-2xl overflow-hidden mt-5">
@@ -11,6 +48,9 @@ export default function Customer({ customers = [], search = "" }) {
                     <tr>
                         <th className="px-6 py-3 text-left font-medium">
                             Customer Name
+                        </th>
+                         <th className="px-6 py-3 text-left font-medium">
+                            Customer Phone
                         </th>
                         <th className="px-6 py-3 text-left font-medium">Type</th>
                         <th className="px-6 py-3 text-left font-medium">
@@ -35,6 +75,10 @@ export default function Customer({ customers = [], search = "" }) {
                                 {row.customer_name}
                             </td>
 
+                            <td className="px-6 py-4 font-medium text-zinc-900">
+                                {row.customer_phone}
+                            </td>
+
                             <td className="px-6 py-4 text-zinc-600">
                                 {row.customer_type}
                             </td>
@@ -54,17 +98,11 @@ export default function Customer({ customers = [], search = "" }) {
                             </td>
 
                             <td className="px-6 py-4 text-zinc-600">
-                                {new Date(row.visit_date)
-                                    .toISOString()
-                                    .split("T")[0]}
+                                {formatDate(row.last_visit)}
                             </td>
 
                             <td className="px-6 py-4 text-zinc-600">
-                                {row.next_followup_date
-                                    ? new Date(row.next_followup_date)
-                                        .toISOString()
-                                        .split("T")[0]
-                                    : "-"}
+                                {formatDate(row.next_followup)}
                             </td>
 
                             <td className="px-6 py-4">
@@ -75,16 +113,14 @@ export default function Customer({ customers = [], search = "" }) {
                         </tr>
                     ))}
 
-                    {filteredCustomers.length === 0 && (
-                        <tr>
+                    {filteredCustomers.length === 0 && <tr>
                             <td
                                 colSpan="6"
                                 className="text-center py-6 text-zinc-500"
                             >
                                 No customers found
                             </td>
-                        </tr>
-                    )}
+                        </tr>}
                 </tbody>
             </table>
         </div>

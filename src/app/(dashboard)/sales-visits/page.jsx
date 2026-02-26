@@ -1,16 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import SalesVisitsReportsDetails from "@/component/salesVisitsReports/SalesVisitsReportsDetails";
+import useAuth from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { useEffect, useState } from "react";
 
 export default function CreateVisitReport() {
     const [loading, setLoading] = useState(false);
+    const [customerOptions, setCustomerOptions] = useState([]);
+
+    const { user } = useAuth();
+
+    // get sales visits reports
+    const { data: visitReportsData = [], isLoading } = useQuery({
+    queryKey: ['get-sales-visits-reports'],
+        queryFn: async () => {
+            const res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/get-sales-customer-visit-reports`)
+            return res.data;
+    }
+    })
+    
+let visitReports = visitReportsData.data;
 
     const [form, setForm] = useState({
         visit_date: "",
-        sales_person_name: "",
+        sales_person_name: user?.full_name,
         customer_assignment: "Self",
 
         customer_name: "",
+        customer_phone: "",
         customer_type: "Existing",
         last_po_reference: "",
         competitor: "",
@@ -31,10 +50,46 @@ export default function CreateVisitReport() {
         next_followup_date: ""
     });
 
+    useEffect(() => {
+        if (user?.full_name) {
+            setForm((prev) => ({ ...prev, sales_person_name: user.full_name }));
+        }
+    }, [user?.full_name]);
+
+    useEffect(() => {
+        const fetchCustomers = async () => {
+            try {
+                const res = await axios.get(
+                    `${process.env.NEXT_PUBLIC_BASE_URL}/get-sales-customers`,
+                );
+                setCustomerOptions(res?.data?.data ?? []);
+            } catch (error) {
+                console.error("Failed to load customers:", error);
+            }
+        };
+
+        fetchCustomers();
+    }, []);
+
     /* ---------------- HANDLERS ---------------- */
 
     const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+
+        if (name === "customer_name") {
+            const selectedCustomer = customerOptions.find(
+                (customer) => customer.customer_name === value,
+            );
+
+            setForm((prev) => ({
+                ...prev,
+                customer_name: value,
+                customer_phone: selectedCustomer?.customer_phone || "",
+            }));
+            return;
+        }
+
+        setForm({ ...form, [name]: value });
     };
 
     const toggleAgenda = (item) => {
@@ -55,18 +110,36 @@ export default function CreateVisitReport() {
         setLoading(true);
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/visit-report`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(form)
-            });
+            const payload = {
+                visit_date: form.visit_date,
+                sales_person_name: form.sales_person_name,
+                customer_assignment: form.customer_assignment,
+                customer_name: form.customer_name,
+                customer_phone: form.customer_phone,
+                customer_type: form.customer_type,
+                customer_priority: form.customer_priority,
+                competitor: form.competitor,
+                last_po_reference: form.last_po_reference,
+                product_category: form.product_category,
+                visit_agenda: form.visit_agenda,
+                meeting_person_name: form.dealing_person_name,
+                meeting_department: form.department,
+                meeting_designation: form.designation,
+                meeting_phone: form.phone_number,
+                meeting_email: form.email,
+                previous_feedback: form.previous_plan_feedback,
+                next_action_plan: form.next_plan,
+                next_followup_date: form.next_followup_date,
+                status: "active",
+            };
 
-            const data = await res.json();
+            const result = await axios.post(
+                `${process.env.NEXT_PUBLIC_BASE_URL}/create-sales-customer-visit-report`,
+                payload,
+            );
 
-            if (!res.ok) {
-                throw new Error(data.error || "Submission failed");
+            if (result?.data?.error) {
+                throw new Error(result?.data?.message || "Submission failed");
             }
 
             alert("✅ Visit report submitted successfully");
@@ -77,6 +150,7 @@ export default function CreateVisitReport() {
                 customer_assignment: "Self",
 
                 customer_name: "",
+                customer_phone: "",
                 customer_type: "Existing",
                 last_po_reference: "",
                 competitor: "",
@@ -99,7 +173,12 @@ export default function CreateVisitReport() {
 
         } catch (err) {
             console.error(err);
-            alert("❌ " + err.message);
+            const message =
+                err?.response?.data?.message ||
+                err?.response?.data?.error ||
+                err?.message ||
+                "Submission failed";
+            alert("❌ " + message);
         } finally {
             setLoading(false);
         }
@@ -110,12 +189,14 @@ export default function CreateVisitReport() {
 
     return (
         <div className="max-w-6xl mx-auto space-y-8">
+            {/* Add Top part */}
+            <div className="max-w-6xl mx-auto space-y-8">
 
             {/* VISIT INFORMATION */}
             <Section title="Visit Information">
                 <Grid>
                     <Input label="Visit Date" type="date" name="visit_date" value={form.visit_date} onChange={handleChange} required />
-                    <Input label="Sales Person Name" name="sales_person_name" value={form.sales_person_name} onChange={handleChange} required />
+                    <Input readOnly label="Sales Person Name" name="sales_person_name" value={form.sales_person_name} onChange={handleChange} required />
 
                     <RadioGroup
                         label="Customer Assignment"
@@ -130,7 +211,28 @@ export default function CreateVisitReport() {
             {/* CUSTOMER DETAILS */}
             <Section title="Customer Details">
                 <Grid>
-                    <Input label="Customer Name" name="customer_name" value={form.customer_name} onChange={handleChange} required />
+                    <div className="space-y-1">
+                        <label className="text-sm text-gray-600">
+                            Customer Name <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            name="customer_name"
+                            value={form.customer_name}
+                            onChange={handleChange}
+                            className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                            required
+                        >
+                            <option value="">Select customer</option>
+                            {customerOptions.map((customer, idx) => (
+                                <option
+                                    key={customer.customer_id || customer.id || `${customer.customer_name}-${idx}`}
+                                    value={customer.customer_name}
+                                >
+                                    {customer.customer_name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
                     <RadioGroup
                         label="Customer Type"
@@ -141,7 +243,10 @@ export default function CreateVisitReport() {
                     />
 
                     <Input label="Last PO Reference" name="last_po_reference" value={form.last_po_reference} onChange={handleChange} />
-                    <Input label="Competitor" name="competitor" value={form.competitor} onChange={handleChange} />
+                        <Input label="Competitor" name="competitor" value={form.competitor} onChange={handleChange} />
+
+                        <Input readOnly label="Customer Phone" name="customer_phone" value={form.customer_phone} />
+                        
                 </Grid>
             </Section>
 
@@ -241,6 +346,12 @@ export default function CreateVisitReport() {
                 >
                     {loading ? "Submitting..." : "Submit Visit Report"}
                 </button>
+            </div>
+        </div>
+            {/* Details part */}
+
+            <div className="max-w-6xl mx-auto space-y-8">
+                <SalesVisitsReportsDetails visitReports={visitReports}></SalesVisitsReportsDetails>
             </div>
         </div>
     );

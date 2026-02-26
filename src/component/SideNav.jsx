@@ -19,7 +19,6 @@ const menuItems = [
     { label: "Sales Visits", href: "/sales-visits", icon: CalendarCheck },
     { label: "Follow-ups", href: "/follow-up", icon: PhoneCall },
     // { label: "Orders / PO", href: "/orders-po", icon: ShoppingCart },
-    { label: "Payments", href: "/payments", icon: CreditCard },
     { label: "Reports", href: "/reports", icon: BarChart3 }
 ];
 
