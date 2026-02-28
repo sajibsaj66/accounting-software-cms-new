@@ -12,9 +12,9 @@ export default function UpcomingFollowUps({ visits = [] }) {
     });
 
     return (
-        <div className="max-w-md bg-white rounded-2xl shadow-sm border border-zinc-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-zinc-100">
-                <h3 className="font-semibold text-zinc-900">
+        <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-200">
+                <h3 className="font-semibold text-[34px] leading-none text-zinc-900">
                     Upcoming Follow-ups
                 </h3>
             </div>

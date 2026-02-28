@@ -1,33 +1,40 @@
 import { Calendar, AlertTriangle, CheckCircle } from "lucide-react";
 
 export default function Statcard({ visits = [] }) {
-    const today = new Date();
+    const isReschedule = (value) => String(value || "").trim().toLowerCase() === "reschedule";
+    const isComplete = (value) => String(value || "").trim().toLowerCase() === "complete";
 
+    const today = new Date();
     const startOfWeek = new Date();
     startOfWeek.setDate(today.getDate() - today.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
 
-    // Scheduled (Future)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    // Scheduled Follow-ups = total status Complete
     const scheduled = visits.filter((v) => {
-        if (!v.next_followup_date) return false;
-        return new Date(v.next_followup_date) >= today;
+        return isComplete(v.status);
     }).length;
 
-    // Overdue (Past)
+    // Overdue = total status Reschedule
     const overdue = visits.filter((v) => {
-        if (!v.next_followup_date) return false;
-        return new Date(v.next_followup_date) < today;
+        return isReschedule(v.status);
     }).length;
 
-    // Completed This Week (Visit Done This Week)
+    // Completed This Week = status Complete + current week range
     const completedWeek = visits.filter((v) => {
-        const visitDate = new Date(v.visit_date);
-        return visitDate >= startOfWeek;
+        if (!isComplete(v.status)) return false;
+        const completedDate = new Date(v.updated_at || v.visit_date);
+        if (Number.isNaN(completedDate.getTime())) return false;
+        return completedDate >= startOfWeek && completedDate <= endOfWeek;
     }).length;
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {/* Scheduled */}
-            <div className="bg-white border rounded-2xl p-5 flex items-center gap-4">
+            <div className="bg-white border border-zinc-200 rounded-2xl p-5 flex items-center gap-4">
                 <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                     <Calendar size={18} />
                 </div>
@@ -40,7 +47,7 @@ export default function Statcard({ visits = [] }) {
             </div>
 
             {/* Overdue */}
-            <div className="bg-white border rounded-2xl p-5 flex items-center gap-4">
+            <div className="bg-white border border-zinc-200 rounded-2xl p-5 flex items-center gap-4">
                 <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-50 text-red-600">
                     <AlertTriangle size={18} />
                 </div>
@@ -53,7 +60,7 @@ export default function Statcard({ visits = [] }) {
             </div>
 
             {/* Completed */}
-            <div className="bg-white border rounded-2xl p-5 flex items-center gap-4">
+            <div className="bg-white border border-zinc-200 rounded-2xl p-5 flex items-center gap-4">
                 <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-green-50 text-green-600">
                     <CheckCircle size={18} />
                 </div>

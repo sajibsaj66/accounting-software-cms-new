@@ -1,8 +1,8 @@
 export default function RecentVisits({ visits }) {
     return (
-        <div className="max-w-md bg-white rounded-2xl overflow-hidden">
-            <div className="px-6 py-4">
-                <h3 className="font-semibold text-zinc-900">
+        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-200">
+                <h3 className="font-semibold text-[34px] leading-none text-zinc-900">
                     Recent Sales Visits
                 </h3>
             </div>
@@ -33,7 +33,7 @@ export default function RecentVisits({ visits }) {
                                 Priority {item.customer_priority}
                             </span>
 
-                            <span className="text-xs px-3 py-1 rounded-full font-medium bg-green-100 text-green-600">
+                            <span className={`text-xs px-3 py-1 rounded-full font-medium ${String(item.status || "").toLowerCase() === "complete" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                                 {item.status}
                             </span>
                         </div>

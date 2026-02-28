@@ -10,8 +10,29 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
     const formatValue = (value) => {
         if (value === null || value === undefined || value === "") return "-";
         if (Array.isArray(value)) return value.length ? value.join(", ") : "-";
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (!trimmed) return "-";
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) return parsed.length ? parsed.join(", ") : "-";
+            } catch (_e) {
+                // Keep plain string as-is when it's not valid JSON.
+            }
+        }
         return value;
     };
+    const getStatusBadgeClass = (status) => {
+        const normalized = String(status || "").trim().toLowerCase();
+        if (normalized === "complete") return "bg-green-100 text-green-600";
+        if (normalized === "reschedule") return "bg-orange-100 text-orange-600";
+        return "bg-zinc-100 text-zinc-600";
+    };
+    const getProductCategoryName = (row) =>
+        row?.product_category_name ||
+        row?.product_category ||
+        row?.category_name ||
+        "-";
 
     return (
         <div>
@@ -48,7 +69,7 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
 
                 <tbody className="divide-y">
                     {visitReports?.map((row, i) => (
-                        <tr key={i} className="hover:bg-zinc-50">
+                        <tr key={row?.id || i} className="hover:bg-zinc-50">
                             <td className="px-6 py-4 font-medium text-zinc-900">
                                 {row.sales_person_name}
                             </td>
@@ -77,7 +98,7 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
 
 
                             <td className="px-6 py-4">
-                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(row.status)}`}>
                                     {row.status}
                                 </span>
                             </td>
@@ -135,11 +156,12 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
                                 <DetailItem label="Sales Person Name" value={formatValue(selectedReport.sales_person_name)} />
                                 <DetailItem label="Customer Assignment" value={formatValue(selectedReport.customer_assignment)} />
                                 <DetailItem label="Customer Name" value={formatValue(selectedReport.customer_name)} />
+                                <DetailItem label="Customer Area" value={formatValue(selectedReport.customer_area)} />
                                 <DetailItem label="Customer Type" value={formatValue(selectedReport.customer_type)} />
                                 <DetailItem label="Customer Priority" value={formatValue(selectedReport.customer_priority)} />
                                 <DetailItem label="Competitor" value={formatValue(selectedReport.competitor)} />
                                 <DetailItem label="Last PO Reference" value={formatValue(selectedReport.last_po_reference)} />
-                                <DetailItem label="Product Category" value={formatValue(selectedReport.product_category)} />
+                                <DetailItem label="Product Category" value={formatValue(getProductCategoryName(selectedReport))} />
                                 <DetailItem
                                     className="md:col-span-2"
                                     label="Visit Agenda"
@@ -148,6 +170,7 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
                                 <DetailItem label="Meeting Person Name" value={formatValue(selectedReport.meeting_person_name)} />
                                 <DetailItem label="Meeting Department" value={formatValue(selectedReport.meeting_department)} />
                                 <DetailItem label="Meeting Designation" value={formatValue(selectedReport.meeting_designation)} />
+                                <DetailItem label="Meeting Person Criteria" value={formatValue(selectedReport.meeting_person_criteria)} />
                                 <DetailItem label="Meeting Phone" value={formatValue(selectedReport.meeting_phone)} />
                                 <DetailItem label="Meeting Email" value={formatValue(selectedReport.meeting_email)} />
                                 <DetailItem

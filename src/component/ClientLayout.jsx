@@ -8,7 +8,7 @@ export default function ClientLayout({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
-        <div className="flex h-screen bg-zinc-50 overflow-hidden">
+        <div className="flex h-screen bg-[#f3f4f6] overflow-hidden">
 
             {/* OVERLAY (phone + tablet) */}
             {sidebarOpen && (

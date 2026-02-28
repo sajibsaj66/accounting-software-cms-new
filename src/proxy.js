@@ -8,6 +8,7 @@ export function proxy(request) {
         request.cookies.get("__Secure-next-auth.session-token")?.value ||
         request.cookies.get("token")?.value;
     const { pathname } = request.nextUrl;
+    
 
     const publicRoutes = ["/"];
     const protectedRoutes = ["/dashboard", "/users", "/reports", "/customers", "/settings", "/sales-visits"];
