@@ -16,6 +16,7 @@ import {
 const menuItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Customers", href: "/customer", icon: Users },
+    { label: "Quotation", href: "/quotation", icon: Users },
     { label: "Sales Visits", href: "/sales-visits", icon: CalendarCheck },
     { label: "Follow-ups", href: "/follow-up", icon: PhoneCall },
     { label: "Orders / PO", href: "/orders-po", icon: ShoppingCart },

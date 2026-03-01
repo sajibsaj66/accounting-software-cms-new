@@ -25,16 +25,16 @@ const authHandler = NextAuth({
         }
 
         const res = await fetch(
-          `${baseUrl}/public/get-sals-person?email=${encodeURIComponent(email)}`,
-          { method: "GET" },
+          `${baseUrl}/public/get-sals-person`,
+          {
+            method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),  },
         );
 
-        if (!res.ok) {
-          return null;
-        }
+         if (!res.ok) return null;
 
         const result = await res.json();
-        if (result?.error || !result?.data) {
+        if (result?.error || !result?.data || !result?.token) {
           return null;
         }
 
@@ -45,7 +45,7 @@ const authHandler = NextAuth({
           salesPerson?.auth_token ||
           salesPerson?.authToken ||
           null;
-
+ if (!token) return null;
         return {
           id: String(
             salesPerson?.id ??
