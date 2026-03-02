@@ -11,17 +11,16 @@ import {
     CreditCard,
     BarChart3,
     Settings,
+    NotebookTabs
 } from "lucide-react";
+
 
 const menuItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Customers", href: "/customer", icon: Users },
-    { label: "Quotation", href: "/quotation", icon: Users },
+    { label: "Quotation", href: "/quotation", icon: NotebookTabs },
     { label: "Sales Visits", href: "/sales-visits", icon: CalendarCheck },
-    { label: "Follow-ups", href: "/follow-up", icon: PhoneCall },
-    { label: "Orders / PO", href: "/orders-po", icon: ShoppingCart },
-    { label: "Payments", href: "/payments", icon: CreditCard },
-    { label: "Reports", href: "/reports", icon: BarChart3 },
+    { label: "Follow-ups", href: "/follow-up", icon: PhoneCall }
 ];
 
 export default function SideNav() {

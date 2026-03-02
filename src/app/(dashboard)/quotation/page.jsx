@@ -1,11 +1,31 @@
-import { accessChecker } from "../../../lib/Function";
 import Link from "next/link";
 import { FilePlus2, FileText, Receipt } from "lucide-react";
 
 const cards = [
-  { key: "quotation_entry", title: "Quotation Entry", href: "/sales/quotation-entry", icon: FilePlus2 },
-  { key: "quotation_record", title: "Quotation Record", href: "/sales/quotation-record", icon: FileText },
-  { key: "quotation_invoice", title: "Quotation Invoice", href: "/sales/quotation-invoice", icon: Receipt },
+  {
+    key: "quotation_entry",
+    title: "Quotation Entry",
+    href: "/sales/quotation-entry",
+    icon: FilePlus2,
+    subtitle: "Create and save a new quotation",
+    accent: "from-cyan-500/20 to-sky-500/10",
+  },
+  {
+    key: "quotation_record",
+    title: "Quotation Record",
+    href: "/sales/quotation-record",
+    icon: FileText,
+    subtitle: "Review and manage submitted records",
+    accent: "from-emerald-500/20 to-teal-500/10",
+  },
+  {
+    key: "quotation_invoice",
+    title: "Quotation Invoice",
+    href: "/sales/quotation-invoice",
+    icon: Receipt,
+    subtitle: "Generate and share quotation invoices",
+    accent: "from-amber-500/20 to-orange-500/10",
+  },
 ];
 
 export default function QuotationMenu({ accessChecker }) {
@@ -17,7 +37,8 @@ export default function QuotationMenu({ accessChecker }) {
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <section className="rounded-2xl bg-[#f1f1f1] p-6 md:p-8">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {cards
         .filter((c) => canAccess(c.key))
         .map((c) => {
@@ -26,13 +47,14 @@ export default function QuotationMenu({ accessChecker }) {
             <Link
               key={c.key}
               href={c.href}
-              className="rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50 transition"
+              className="group flex h-44 flex-col items-center justify-center rounded-xl bg-[#3d6775] px-5 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#355b67] hover:shadow-md"
             >
-              <Icon className="h-5 w-5 text-blue-600" />
-              <p className="mt-3 text-sm font-medium text-zinc-800">{c.title}</p>
+              <Icon className="h-7 w-7 text-white/95" strokeWidth={1.8} />
+              <p className="mt-4 text-2xl font-medium tracking-tight text-white">{c.title}</p>
             </Link>
           );
         })}
-    </div>
+      </div>
+    </section>
   );
 }

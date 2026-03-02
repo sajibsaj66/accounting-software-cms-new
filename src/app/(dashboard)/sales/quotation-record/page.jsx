@@ -90,7 +90,16 @@ export default function QuotationRecord() {
     if (selectedSearchType === "By Customer") {
       return customers.map((r) => ({
         value: String(r?.customer_id ?? r?.id ?? ""),
-        label: r?.display_text || r?.customer_name || r?.name || "Customer",
+        label:
+          r?.customer_name ||
+          r?.name ||
+          (r?.display_text
+            ? String(r.display_text).replace(
+                /(\s*[-|,]?\s*)(\+?\d[\d\s\-()]{6,}\d)\s*$/g,
+                ""
+              )
+            : "") ||
+          "Customer",
       }));
     }
     if (selectedSearchType === "By Product") {
@@ -183,10 +192,21 @@ export default function QuotationRecord() {
       return;
     }
 
-    const reqPayload = { fromDate, toDate };
+    if (selectedSearchType !== "All" && !selectedFilterValue) {
+      alert("Please select a filter value first.");
+      return;
+    }
+
+    const reqPayload = {
+      fromDate,
+      toDate,
+      dateTimeFrom: `${fromDate} 00:00:00`,
+      dateTimeTo: `${toDate} 23:59:59`,
+      selectedSearchType,
+    };
 
     if (selectedSearchType === "By Customer" && selectedFilterValue) {
-      reqPayload.customerId = Number(selectedFilterValue);
+      reqPayload.customerId = String(selectedFilterValue);
     }
     if (selectedSearchType === "By Product" && selectedFilterValue) {
       reqPayload.productId = Number(selectedFilterValue);
@@ -212,8 +232,14 @@ export default function QuotationRecord() {
 
     setLoading(true);
     try {
+      console.log("[QuotationRecord] getSearchResult request", { url, reqPayload });
       const res = await axios.post(url, { reqPayload }, requestConfig);
       const message = res?.data?.message || res?.data?.data || [];
+      console.log("[QuotationRecord] getSearchResult response", {
+        url,
+        count: Array.isArray(message) ? message.length : 0,
+        message,
+      });
 
       searchResultSet([]);
       searchResultDetailsSet([]);
@@ -222,6 +248,12 @@ export default function QuotationRecord() {
 
       if (selectedSearchType === "By Product") {
         saleProductDetailSet(message);
+        console.log("[QuotationRecord] data applied", {
+          target: "saleProductDetail",
+          selectedSearchType,
+          selectedRecordType,
+          count: Array.isArray(message) ? message.length : 0,
+        });
       } else if (selectedSearchType === "By Category") {
         const grouped = (message || []).reduce((acc, item) => {
           const key =
@@ -241,13 +273,36 @@ export default function QuotationRecord() {
           ),
         }));
         saleProdCatDetailSet(records);
+        console.log("[QuotationRecord] data applied", {
+          target: "saleProdCatDetail",
+          selectedSearchType,
+          selectedRecordType,
+          count: records.length,
+        });
       } else if (selectedRecordType === "With Details") {
         searchResultDetailsSet(message);
+        console.log("[QuotationRecord] data applied", {
+          target: "searchResultDetails",
+          selectedSearchType,
+          selectedRecordType,
+          count: Array.isArray(message) ? message.length : 0,
+        });
       } else {
         searchResultSet(message);
+        console.log("[QuotationRecord] data applied", {
+          target: "searchResult",
+          selectedSearchType,
+          selectedRecordType,
+          count: Array.isArray(message) ? message.length : 0,
+        });
       }
     } catch (error) {
-      console.error("Search failed", error);
+      console.error("[QuotationRecord] getSearchResult failed", {
+        url,
+        reqPayload,
+        error,
+        response: error?.response?.data,
+      });
       alert(error?.response?.data?.message || "Failed to load report data.");
     } finally {
       setLoading(false);
@@ -358,7 +413,7 @@ export default function QuotationRecord() {
           </Grid>
 
           {showFilterDropdown && (
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} md={4} lg={3}>
               <TextField
                 fullWidth
                 label={selectedSearchType}
@@ -366,6 +421,7 @@ export default function QuotationRecord() {
                 value={selectedFilterValue}
                 onChange={(e) => setSelectedFilterValue(e.target.value)}
                 disabled={filterLoading}
+                sx={{ minWidth: { md: 300 } }}
               >
                 {filterOptions.map((opt) => (
                   <MenuItem key={opt.value} value={opt.value}>
@@ -443,11 +499,21 @@ export default function QuotationRecord() {
               <TableCell>SL</TableCell>
               <TableCell>INVOICE NO</TableCell>
               <TableCell>DATE & TIME</TableCell>
-              <TableCell>CUSTOMER / GROUP</TableCell>
-              <TableCell align="right">SUB TOTAL</TableCell>
-              <TableCell align="right">DISCOUNT</TableCell>
-              <TableCell align="right">VAT</TableCell>
-              <TableCell align="right">TRANSPORT</TableCell>
+              <TableCell>{selectedRecordType === "With Details" ? "CUSTOMER" : "CUSTOMER / GROUP"}</TableCell>
+              {selectedRecordType === "With Details" ? (
+                <>
+                  <TableCell>PRODUCT NAME</TableCell>
+                  <TableCell align="right">PRICE</TableCell>
+                  <TableCell align="right">QUANTITY</TableCell>
+                </>
+              ) : (
+                <>
+                  <TableCell align="right">SUB TOTAL</TableCell>
+                  <TableCell align="right">DISCOUNT</TableCell>
+                  <TableCell align="right">VAT</TableCell>
+                  <TableCell align="right">TRANSPORT</TableCell>
+                </>
+              )}
               <TableCell align="right">TOTAL</TableCell>
               <TableCell align="center">ACTIONS</TableCell>
             </TableRow>
@@ -455,57 +521,159 @@ export default function QuotationRecord() {
           <TableBody>
             {!tableRows.length && (
               <TableRow>
-                <TableCell align="center" colSpan={10}>
+                <TableCell align="center" colSpan={selectedRecordType === "With Details" ? 9 : 10}>
                   No data found.
                 </TableCell>
               </TableRow>
             )}
 
-            {tableRows.map((row, idx) => {
-              const subtotal =
-                selectedSearchType === "By Category"
-                  ? Number(row?.subtotal || 0)
-                  : Number(row?.sale_subtotal_amount ?? row?.subtotal ?? row?.sale_prod_total ?? 0);
-              const discount = Number(row?.sale_discount_amount ?? row?.discount ?? 0);
-              const vat = Number(row?.sale_vat_amount ?? row?.vat ?? 0);
-              const transport = Number(row?.sale_transport_cost ?? row?.transport ?? 0);
-              const total =
-                selectedSearchType === "By Category"
-                  ? Number(row?.subtotal || 0)
-                  : Number(row?.sale_total_amount ?? row?.total ?? row?.sale_prod_total ?? 0);
+            {selectedRecordType === "With Details"
+              ? tableRows.map((row, idx) => {
+                  const details = Array.isArray(row?.details) && row.details.length ? row.details : [{}];
+                  const invoiceTotal = Number(row?.sale_total_amount ?? row?.total ?? 0);
+                  const totalQty = details.reduce(
+                    (sum, d) =>
+                      sum +
+                      Number(
+                        d?.sale_qty ??
+                          d?.sale_prod_qty ??
+                          d?.quantity ??
+                          d?.qty ??
+                          0
+                      ),
+                    0
+                  );
 
-              return (
-                <TableRow key={`${idx}-${row?.sale_id ?? row?.id ?? row?.category ?? "row"}`}>
-                  <TableCell>{idx + 1}</TableCell>
-                  <TableCell>{row?.sale_invoice || row?.invoice || "-"}</TableCell>
-                  <TableCell>{row?.sale_created_isodt || row?.datetime || row?.date_time || "-"}</TableCell>
-                  <TableCell>{row?.customer_name || row?.sale_customer_name || row?.customer || row?.category || "-"}</TableCell>
-                  <TableCell align="right">{money(subtotal)}</TableCell>
-                  <TableCell align="right">{money(discount)}</TableCell>
-                  <TableCell align="right">{money(vat)}</TableCell>
-                  <TableCell align="right">{money(transport)}</TableCell>
-                  <TableCell align="right">{money(total)}</TableCell>
-                  <TableCell align="center">
-                    <IconButton size="small" disabled={selectedSearchType === "By Category"}>
-                      <ReceiptLongIcon />
-                    </IconButton>
-                    <IconButton size="small" sx={{ color: "#5a8f1a" }} disabled={selectedSearchType === "By Category"}>
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      sx={{ color: "#e22f1f" }}
-                      disabled={selectedSearchType === "By Category"}
-                      onClick={() => handleDelete(row)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                  return (
+                    <React.Fragment key={`${idx}-${row?.sale_id ?? row?.id ?? "detail-row"}`}>
+                      {details.map((detail, detailIdx) => {
+                        const qty = Number(
+                          detail?.sale_qty ??
+                            detail?.sale_prod_qty ??
+                            detail?.quantity ??
+                            detail?.qty ??
+                            0
+                        );
+                        const price = Number(
+                          detail?.sale_rate ??
+                          detail?.sale_prod_price ??
+                            detail?.sale_prod_unit_price ??
+                            detail?.price ??
+                            detail?.sale_prod_rate ??
+                            0
+                        );
+                        const lineTotal = Number(
+                          detail?.sale_prod_total ??
+                            detail?.total ??
+                            detail?.line_total ??
+                            (qty && price ? qty * price : 0)
+                        );
 
-            {!!tableRows.length && (
+                        return (
+                          <TableRow key={`${idx}-${detailIdx}-${detail?.sale_details_id ?? detail?.id ?? "d"}`}>
+                            {detailIdx === 0 && <TableCell rowSpan={details.length}>{idx + 1}</TableCell>}
+                            {detailIdx === 0 && (
+                              <TableCell rowSpan={details.length}>
+                                {row?.sale_invoice || row?.invoice || "-"}
+                              </TableCell>
+                            )}
+                            {detailIdx === 0 && (
+                              <TableCell rowSpan={details.length}>
+                                {row?.sale_created_isodt || row?.datetime || row?.date_time || "-"}
+                              </TableCell>
+                            )}
+                            {detailIdx === 0 && (
+                              <TableCell rowSpan={details.length}>
+                                {row?.customer_name || row?.sale_customer_name || row?.customer || "-"}
+                              </TableCell>
+                            )}
+                            <TableCell>
+                              {detail?.prod_name || detail?.product_name || detail?.sale_prod_name || "-"}
+                            </TableCell>
+                            <TableCell align="right">{money(price)}</TableCell>
+                            <TableCell align="right">{Number(qty || 0).toLocaleString()}</TableCell>
+                            <TableCell align="right">{money(lineTotal)}</TableCell>
+                            {detailIdx === 0 && (
+                              <TableCell align="center" rowSpan={details.length}>
+                                <IconButton size="small">
+                                  <ReceiptLongIcon />
+                                </IconButton>
+                                <IconButton size="small" sx={{ color: "#5a8f1a" }}>
+                                  <EditIcon />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  sx={{ color: "#e22f1f" }}
+                                  onClick={() => handleDelete(row)}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })}
+                      <TableRow>
+                        <TableCell colSpan={6} />
+                        <TableCell align="right" sx={{ fontWeight: 500 }}>
+                          Total Quantity : {Number(totalQty || 0).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 500 }}>
+                          Total : {money(invoiceTotal)}
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </React.Fragment>
+                  );
+                })
+              : tableRows.map((row, idx) => {
+                  const subtotal =
+                    selectedSearchType === "By Category"
+                      ? Number(row?.subtotal || 0)
+                      : Number(row?.sale_subtotal_amount ?? row?.subtotal ?? row?.sale_prod_total ?? 0);
+                  const discount = Number(row?.sale_discount_amount ?? row?.discount ?? 0);
+                  const vat = Number(row?.sale_vat_amount ?? row?.vat ?? 0);
+                  const transport = Number(row?.sale_transport_cost ?? row?.transport ?? 0);
+                  const total =
+                    selectedSearchType === "By Category"
+                      ? Number(row?.subtotal || 0)
+                      : Number(row?.sale_total_amount ?? row?.total ?? row?.sale_prod_total ?? 0);
+
+                  return (
+                    <TableRow key={`${idx}-${row?.sale_id ?? row?.id ?? row?.category ?? "row"}`}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>{row?.sale_invoice || row?.invoice || "-"}</TableCell>
+                      <TableCell>{row?.sale_created_isodt || row?.datetime || row?.date_time || "-"}</TableCell>
+                      <TableCell>{row?.customer_name || row?.sale_customer_name || row?.customer || row?.category || "-"}</TableCell>
+                      <TableCell align="right">{money(subtotal)}</TableCell>
+                      <TableCell align="right">{money(discount)}</TableCell>
+                      <TableCell align="right">{money(vat)}</TableCell>
+                      <TableCell align="right">{money(transport)}</TableCell>
+                      <TableCell align="right">{money(total)}</TableCell>
+                      <TableCell align="center">
+                        <IconButton size="small" disabled={selectedSearchType === "By Category"}>
+                          <ReceiptLongIcon />
+                        </IconButton>
+                        <IconButton size="small" sx={{ color: "#5a8f1a" }} disabled={selectedSearchType === "By Category"}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          sx={{ color: "#e22f1f" }}
+                          disabled={selectedSearchType === "By Category"}
+                          onClick={() => handleDelete(row)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+            {selectedRecordType !== "With Details" && !!tableRows.length && (
               <TableRow>
                 <TableCell colSpan={4} />
                 <TableCell align="right" sx={{ fontWeight: 700 }}>{money(totals.subtotal)}</TableCell>
