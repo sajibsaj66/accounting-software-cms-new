@@ -1,8 +1,17 @@
 import { Calendar, AlertTriangle, CheckCircle } from "lucide-react";
 
 export default function Statcard({ visits = [] }) {
-    const isReschedule = (value) => String(value || "").trim().toLowerCase() === "reschedule";
     const isComplete = (value) => String(value || "").trim().toLowerCase() === "complete";
+    const now = new Date();
+    const parseFollowUpDate = (value) => {
+        if (!value) return null;
+        if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [year, month, day] = value.split("-").map(Number);
+            return new Date(year, month - 1, day);
+        }
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date;
+    };
 
     const today = new Date();
     const startOfWeek = new Date();
@@ -18,9 +27,12 @@ export default function Statcard({ visits = [] }) {
         return isComplete(v.status);
     }).length;
 
-    // Overdue = total status Reschedule
+    // Overdue = next_followup_date passed by 24 hours (status independent)
     const overdue = visits.filter((v) => {
-        return isReschedule(v.status);
+        const followDate = parseFollowUpDate(v?.next_followup_date);
+        if (!followDate) return false;
+        const overdueAt = new Date(followDate.getTime() + 24 * 60 * 60 * 1000);
+        return now >= overdueAt;
     }).length;
 
     // Completed This Week = status Complete + current week range

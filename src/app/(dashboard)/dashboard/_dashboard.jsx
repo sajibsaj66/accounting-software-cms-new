@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import useAuth from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import ActionRequiredCard from "@/component/DashBoard/ActionRequiredCard";
 import RecentVisits from "@/component/DashBoard/RecentVisits";
 import StatCard from "@/component/DashBoard/StatCard";
@@ -9,49 +10,45 @@ import FollowUpUpcomingFollowUps from "@/component/FollowUp/UpcomingFollowUps";
 
 
 const Dashboard = () => {
-    const [visits, setVisits] = useState([]);
-    const [followupVisits, setFollowupVisits] = useState([]);
     const [recentQuotations, setRecentQuotations] = useState([]);
     const [loadingQuotations, setLoadingQuotations] = useState(false);
+    const [totalQuotations, setTotalQuotations] = useState(0);
     const authInfo = useAuth();
     const API_URL = process.env.NEXT_PUBLIC_BASE_URL;
     const token = authInfo?.token || authInfo?.accessToken;
 
-    useEffect(() => {
-        const fetchVisits = async () => {
-            try {
-                const res = await fetch(
-                    `${process.env.NEXT_PUBLIC_BASE_URL}/api/visit-report`
-                );
+    const { data: visitsResponse } = useQuery({
+        queryKey: ["dashboard-get-sales-visits-reports", token],
+        queryFn: async () => {
+            const res = await axios.get(
+                `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customer-visit-reports`,
+                { headers: { "auth-token": token } }
+            );
+            return res?.data;
+        },
+        refetchInterval: 15000,
+        refetchOnWindowFocus: true,
+        enabled: Boolean(token),
+    });
 
-                if (!res.ok) {
-                    throw new Error("Failed to fetch");
-                }
+    const visits = Array.isArray(visitsResponse?.data)
+        ? visitsResponse.data
+        : [];
 
-                const data = await res.json();
-                setVisits(data.data);
-            } catch (error) {
-                console.error(error);
-            }
-        };
-
-        fetchVisits();
-    }, []);
-
-    useEffect(() => {
-        const fetchFollowupVisits = async () => {
-            try {
-                const res = await axios.get(
-                    `${process.env.NEXT_PUBLIC_BASE_URL}/get-sales-customer-visit-reports`
-                );
-                setFollowupVisits(res?.data?.data || []);
-            } catch (error) {
-                console.error("Failed to fetch follow-up visits", error);
-                setFollowupVisits([]);
-            }
-        };
-        fetchFollowupVisits();
-    }, []);
+    const { data: customers = [] } = useQuery({
+        queryKey: ["sales-customers", token],
+        queryFn: async () => {
+            const res = await axios.get(
+                `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customers`,
+                { headers: { "auth-token": token } }
+            );
+            return Array.isArray(res?.data?.data) ? res.data.data : [];
+        },
+        refetchInterval: 15000,
+        refetchOnWindowFocus: true,
+        enabled: Boolean(token),
+    });
+    
 
     useEffect(() => {
         if (!API_URL || !token) return;
@@ -64,9 +61,11 @@ const Dashboard = () => {
                     { headers: { "auth-token": token } }
                 );
                 const rows = Array.isArray(res?.data?.message) ? res.data.message : [];
+                setTotalQuotations(rows.length);
                 setRecentQuotations(rows.slice(0, 6));
             } catch (error) {
                 console.error("Failed to fetch recent quotations", error);
+                setTotalQuotations(0);
                 setRecentQuotations([]);
             } finally {
                 setLoadingQuotations(false);
@@ -75,16 +74,13 @@ const Dashboard = () => {
         fetchRecentQuotations();
     }, [API_URL, token]);
 
-    const toDate = (value) => {
-        if (!value) return "-";
-        const d = new Date(value);
-        if (Number.isNaN(d.getTime())) return String(value);
-        return d.toISOString().split("T")[0];
-    };
-
     return (
         <div className="space-y-6">
-            <StatCard visits={visits} />
+            <StatCard
+                visits={visits}
+                totalCustomers={customers.length}
+                totalQuotations={totalQuotations}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <RecentVisits visits={visits} />
@@ -92,7 +88,7 @@ const Dashboard = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <FollowUpUpcomingFollowUps visits={followupVisits} />
+                <FollowUpUpcomingFollowUps visits={visits} />
                 <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
                     <div className="px-6 py-5 border-b border-zinc-200">
                         <h3 className="font-semibold text-[28px] leading-none text-zinc-900">
@@ -112,7 +108,7 @@ const Dashboard = () => {
                                     <div>
                                         <p className="font-medium text-zinc-900">{q?.sale_invoice || "-"}</p>
                                         <p className="text-sm text-zinc-500 mt-1">
-                                            {q?.customer_name || "Customer"} • {toDate(q?.sale_created_isodt)}
+                                            {q?.customer_name || "Customer"} • {q?.sale_created_isodt ? new Date(q.sale_created_isodt).toISOString().split("T")[0] : "-"}
                                         </p>
                                     </div>
                                     <p className="text-sm font-semibold text-zinc-800">

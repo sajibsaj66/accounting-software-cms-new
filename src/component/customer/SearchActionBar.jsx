@@ -15,7 +15,8 @@ export default function SearchActionBar({
   setIsAddCustomerOpenExternal,
 }) {
     const [isAddCustomerOpenInternal, setIsAddCustomerOpenInternal] = useState(false);
-    const {user} = useAuth();
+    const { user, token } = useAuth();
+
     const queryClient = useQueryClient();
     const isAddCustomerOpen =
       typeof isAddCustomerOpenExternal === "boolean"
@@ -52,8 +53,9 @@ export default function SearchActionBar({
 
         try {
   const res = await axios.post(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/create-sales-customers`,
-    payload
+    `${process.env.NEXT_PUBLIC_BASE_URL}/api/create-sales-customers`,
+    payload,
+    { headers: { "auth-token": token } }
   );
 
   //  Success case

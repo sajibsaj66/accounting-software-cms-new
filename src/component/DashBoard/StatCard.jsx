@@ -1,32 +1,35 @@
 import { Users, Briefcase, Calendar, DollarSign } from "lucide-react";
 
-export default function StatCard({ visits = [] }) {
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
+export default function StatCard({ visits = [], totalCustomers, totalQuotations = 0 }) {
+    const safeVisits = Array.isArray(visits) ? visits : [];
+    const now = new Date();
+    const parseFollowUpDate = (value) => {
+        if (!value) return null;
+        if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [year, month, day] = value.split("-").map(Number);
+            return new Date(year, month - 1, day);
+        }
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date;
+    };
 
     // ✅ Total Unique Customers
-    const uniqueCustomers = [
-        ...new Set(visits.map((v) => v.customer_name)),
+    const uniqueCustomersFromVisits = [
+        ...new Set(safeVisits.map((v) => v.customer_name)),
     ].length;
+    const uniqueCustomers = Number.isFinite(totalCustomers)
+        ? totalCustomers
+        : uniqueCustomersFromVisits;
 
     // ✅ Total Visits
-    const totalVisits = visits.length;
+    const totalVisits = safeVisits.length;
 
     // ✅ Upcoming Followups
-    const upcomingFollowups = visits.filter((v) => {
-        if (!v.next_followup_date) return false;
-        const followDate = new Date(v.next_followup_date);
-        return followDate >= today;
-    }).length;
-
-    // ✅ This Month Visit Report
-    const thisMonthVisits = visits.filter((v) => {
-        const visitDate = new Date(v.visit_date);
-        return (
-            visitDate.getMonth() === currentMonth &&
-            visitDate.getFullYear() === currentYear
-        );
+    const upcomingFollowups = safeVisits.filter((v) => {
+        const followDate = parseFollowUpDate(v?.next_followup_date);
+        if (!followDate) return false;
+        const overdueAt = new Date(followDate.getTime() + 24 * 60 * 60 * 1000);
+        return now < overdueAt;
     }).length;
 
     const stats = [
@@ -49,7 +52,7 @@ export default function StatCard({ visits = [] }) {
             trendColor: "text-emerald-600",
         },
         {
-            title: "Pending Follow-ups",
+            title: "Total Upcoming Follow-ups",
             value: upcomingFollowups,
             icon: Calendar,
             iconBg: "bg-orange-100",
@@ -58,8 +61,8 @@ export default function StatCard({ visits = [] }) {
             trendColor: "text-red-500",
         },
         {
-            title: "Revenue (Lakhs)",
-            value: thisMonthVisits,
+            title: "Total Quotation Invoices",
+            value: Number.isFinite(totalQuotations) ? totalQuotations : 0,
             icon: DollarSign,
             iconBg: "bg-violet-100",
             iconText: "text-violet-600",

@@ -5,13 +5,18 @@ import OverdueFollowUps from "@/component/FollowUp/OverdueFollowUps";
 import Statcard from "@/component/FollowUp/Statcard";
 import UpcomingFollowUps from "@/component/FollowUp/UpcomingFollowUps";
 import axios from "axios";
+import useAuth from "@/hooks/useAuth";
 
 export default function FollowUp() {
+
+    const { token } = useAuth();
+
     const { data: visitReportsData = [], isLoading } = useQuery({
         queryKey: ["get-sales-visits-reports"],
         queryFn: async () => {
             const res = await axios.get(
-                `${process.env.NEXT_PUBLIC_BASE_URL}/get-sales-customer-visit-reports`,
+                `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customer-visit-reports`,
+                { headers: { "auth-token": token } }
             );
             return res.data;
         },

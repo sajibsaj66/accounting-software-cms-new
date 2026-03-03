@@ -78,13 +78,13 @@ export default function CreateVisitReport() {
     const [customerSearch, setCustomerSearch] = useState("");
     const [editingReportId, setEditingReportId] = useState(null);
 
-    const { user } = useAuth();
+  const { user, token } = useAuth();
 
     // get sales visits reports
     const { data: visitReportsData = [], isLoading } = useQuery({
     queryKey: ['get-sales-visits-reports'],
         queryFn: async () => {
-            const res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/get-sales-customer-visit-reports`)
+            const res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customer-visit-reports`, { headers: { "auth-token": token } })
             return res.data;
     }
     })
@@ -94,7 +94,7 @@ export default function CreateVisitReport() {
 
     const [form, setForm] = useState({
         visit_date: "",
-        sales_person_name: user?.full_name,
+        sales_person_name: user?.full_name || "",
         customer_assignment: "Self",
 
         customer_name: "",
@@ -129,10 +129,12 @@ export default function CreateVisitReport() {
     }, [user?.full_name]);
 
     useEffect(() => {
+        if (!token) return;
         const fetchCustomers = async () => {
             try {
                 const res = await axios.get(
-                    `${process.env.NEXT_PUBLIC_BASE_URL}/get-sales-customers`,
+                    `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customers`,
+                    { headers: { "auth-token": token } },
                 );
                 setCustomerOptions(res?.data?.data ?? []);
             } catch (error) {
@@ -141,7 +143,7 @@ export default function CreateVisitReport() {
         };
 
         fetchCustomers();
-    }, []);
+    }, [token]);
 
     useEffect(() => {
         const fetchProductCategories = async () => {
@@ -419,12 +421,14 @@ export default function CreateVisitReport() {
 
             const result = editingReportId
                 ? await axios.patch(
-                      `${process.env.NEXT_PUBLIC_BASE_URL}/update-sales-customer-visit-report/${editingReportId}`,
-                      payload,
+                      `${process.env.NEXT_PUBLIC_BASE_URL}/api/update-sales-customer-visit-report/${editingReportId}`,
+                  payload,
+                      { headers: { "auth-token": token } }
                   )
                 : await axios.post(
-                      `${process.env.NEXT_PUBLIC_BASE_URL}/create-sales-customer-visit-report`,
-                      payload,
+                      `${process.env.NEXT_PUBLIC_BASE_URL}/api/create-sales-customer-visit-report`,
+                  payload,
+                      { headers: { "auth-token": token } }
                   );
 
             if (result?.data?.error) {
@@ -832,12 +836,17 @@ function Grid({ children }) {
 }
 
 function Input({ label, ...props }) {
+    const normalizedProps = { ...props };
+    if (Object.prototype.hasOwnProperty.call(normalizedProps, "value")) {
+        normalizedProps.value = normalizedProps.value ?? "";
+    }
+
     return (
         <div className="space-y-1">
             <label className="text-sm text-gray-600">
                 {label} {props.required && <span className="text-red-500">*</span>}
             </label>
-            <input {...props} className="w-full border rounded-lg px-3 py-2 text-sm" />
+            <input {...normalizedProps} className="w-full border rounded-lg px-3 py-2 text-sm" />
         </div>
     );
 }

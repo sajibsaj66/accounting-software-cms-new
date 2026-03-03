@@ -1,9 +1,18 @@
 import { AlertTriangle, Calendar, Clock } from "lucide-react";
 
-function formatDate(value) {
-    if (!value) return "-";
+function parseFollowUpDate(value) {
+    if (!value) return null;
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split("-").map(Number);
+        return new Date(year, month - 1, day);
+    }
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDate(value) {
+    const date = parseFollowUpDate(value);
+    if (!date) return "-";
 
     return date.toLocaleDateString("en-BD", {
         year: "numeric",
@@ -13,9 +22,8 @@ function formatDate(value) {
 }
 
 function formatTime(value) {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
+    const date = parseFollowUpDate(value);
+    if (!date) return "-";
 
     return date.toLocaleTimeString("en-BD", {
         hour: "2-digit",
@@ -26,20 +34,27 @@ function formatTime(value) {
 
 export default function OverdueFollowUps({ visits = [] }) {
     const priorityOrder = { A: 1, B: 2, C: 3 };
+    const now = new Date();
 
     const overdue = visits
         .filter((v) => {
-            const status = String(v.status || "").trim().toLowerCase();
-            if (status !== "reschedule") return false;
-            return true;
+            const followDate = parseFollowUpDate(v.next_followup_date);
+            if (!followDate) return false;
+            const overdueAt = new Date(followDate.getTime() + 24 * 60 * 60 * 1000);
+            return now >= overdueAt;
         })
         .sort((a, b) => {
+            const aDate = parseFollowUpDate(a.next_followup_date);
+            const bDate = parseFollowUpDate(b.next_followup_date);
+            const aTime = aDate ? aDate.getTime() : Number.MAX_SAFE_INTEGER;
+            const bTime = bDate ? bDate.getTime() : Number.MAX_SAFE_INTEGER;
+            if (aTime !== bTime) return aTime - bTime;
+
             const aPriority = priorityOrder[String(a.customer_priority || "").toUpperCase()] || 999;
             const bPriority = priorityOrder[String(b.customer_priority || "").toUpperCase()] || 999;
 
             if (aPriority !== bPriority) return aPriority - bPriority;
-
-            return new Date(a.next_followup_date) - new Date(b.next_followup_date);
+            return 0;
         });
 
     return (

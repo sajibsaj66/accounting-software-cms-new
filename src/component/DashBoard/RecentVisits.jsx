@@ -1,4 +1,6 @@
-export default function RecentVisits({ visits }) {
+export default function RecentVisits({ visits = [] }) {
+    const safeVisits = Array.isArray(visits) ? visits : [];
+
     return (
         <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
             <div className="px-6 py-5 border-b border-zinc-200">
@@ -8,7 +10,7 @@ export default function RecentVisits({ visits }) {
             </div>
 
             <div className="divide-y">
-                {visits.slice(0, 5).map((item, i) => (
+                {safeVisits.slice(0, 5).map((item, i) => (
                     <div key={i} className="px-6 py-4 flex justify-between items-start">
                         <div>
                             <p className="font-medium text-zinc-900">

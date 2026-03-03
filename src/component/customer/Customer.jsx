@@ -1,21 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
+import useAuth from "@/hooks/useAuth";
 
 export default function Customer({ search = "" }) {
     const normalizedSearch = search.trim().toLowerCase();
+    const authInfo = useAuth();
+    const token = authInfo?.token;
 
     const {
         data: customerData = [],
         isLoading,
         isError,
     } = useQuery({
-        queryKey: ["sales-customers"],
+        queryKey: ["sales-customers", token],
         queryFn: async () => {
             const res = await axios.get(
-                `${process.env.NEXT_PUBLIC_BASE_URL}/get-sales-customers`,
+                `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customers`,
+                { headers: { "auth-token": token } },
             );
             return res?.data?.data ?? [];
         },
+        enabled: Boolean(token),
     });
 
     const filteredCustomers = customerData.filter((c) => {
