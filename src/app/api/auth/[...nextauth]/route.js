@@ -1,9 +1,13 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const authHandler = NextAuth({
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -19,20 +23,22 @@ const authHandler = NextAuth({
           throw new Error("Email and password are required");
         }
 
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-        if (!baseUrl) {
-          throw new Error("NEXT_PUBLIC_BASE_URL is not configured");
-        }
+        const apiBaseUrl =
+          process.env.AUTH_API_BASE_URL || process.env.NEXT_PUBLIC_BASE_URL;
+        if (!apiBaseUrl) return null;
 
         const res = await fetch(
-          `${baseUrl}/public/get-sals-person`,
+          `${apiBaseUrl}/public/get-sals-person`,
           {
             method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),  },
         );
 
          if (!res.ok) return null;
-
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          return null;
+        }
         const result = await res.json();
         if (result?.error || !result?.data || !result?.token) {
           return null;

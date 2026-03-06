@@ -33,6 +33,45 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
         row?.product_category ||
         row?.category_name ||
         "-";
+    const normalizeMeetingPerson = (person = {}) => ({
+        meeting_person_name: (person?.meeting_person_name || "").toString().trim(),
+        meeting_department: (person?.meeting_department || "").toString().trim(),
+        meeting_designation: (person?.meeting_designation || "").toString().trim(),
+        meeting_person_criteria: (person?.meeting_person_criteria || "").toString().trim(),
+        meeting_phone: (person?.meeting_phone || "").toString().trim(),
+        meeting_email: (person?.meeting_email || "").toString().trim(),
+    });
+    const getMeetingPersons = (row) => {
+        const raw = row?.meeting_persons_details;
+
+        if (Array.isArray(raw)) {
+            return raw.map(normalizeMeetingPerson).filter((person) => Object.values(person).some(Boolean));
+        }
+
+        if (typeof raw === "string" && raw.trim()) {
+            try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    return parsed
+                        .map(normalizeMeetingPerson)
+                        .filter((person) => Object.values(person).some(Boolean));
+                }
+            } catch (_e) {
+                // Fall back to legacy fields.
+            }
+        }
+
+        const legacy = normalizeMeetingPerson({
+            meeting_person_name: row?.meeting_person_name || "",
+            meeting_department: row?.meeting_department || "",
+            meeting_designation: row?.meeting_designation || "",
+            meeting_person_criteria: row?.meeting_person_criteria || "",
+            meeting_phone: row?.meeting_phone || "",
+            meeting_email: row?.meeting_email || "",
+        });
+
+        return Object.values(legacy).some(Boolean) ? [legacy] : [];
+    };
 
     return (
         <div>
@@ -70,16 +109,26 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
                 <tbody className="divide-y">
                     {visitReports?.map((row, i) => (
                         <tr key={row?.id || i} className="hover:bg-zinc-50">
-                            <td className="px-6 py-4 font-medium text-zinc-900">
-                                {row.sales_person_name}
-                            </td>
+                            <td className="px-6 py-4 font-medium text-zinc-900">{row.sales_person_name}</td>
 
                             <td className="px-6 py-4 font-medium text-zinc-900">
-                                {row.meeting_person_name}
+                                {(() => {
+                                    const meetingPersons = getMeetingPersons(row);
+                                    const first = meetingPersons[0];
+                                    if (!first) return "-";
+                                    if (meetingPersons.length === 1) return first.meeting_person_name || "-";
+                                    return `${first.meeting_person_name || "-"} (+${meetingPersons.length - 1} more)`;
+                                })()}
                             </td>
 
                             <td className="px-6 py-4 text-zinc-600">
-                                {row.meeting_phone}
+                                {(() => {
+                                    const meetingPersons = getMeetingPersons(row);
+                                    const first = meetingPersons[0];
+                                    if (!first) return "-";
+                                    if (meetingPersons.length === 1) return first.meeting_phone || "-";
+                                    return `${first.meeting_phone || "-"} (+${meetingPersons.length - 1} more)`;
+                                })()}
                             </td>
 
                             <td className="px-6 py-4">
@@ -151,6 +200,9 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
                         </div>
 
                         <div className="max-h-[70vh] overflow-y-auto p-6">
+                            {(() => {
+                                const meetingPersons = getMeetingPersons(selectedReport);
+                                return (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                 <DetailItem label="Visit Date" value={formatValue(selectedReport.visit_date)} />
                                 <DetailItem label="Sales Person Name" value={formatValue(selectedReport.sales_person_name)} />
@@ -167,12 +219,30 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
                                     label="Visit Agenda"
                                     value={formatValue(selectedReport.visit_agenda)}
                                 />
-                                <DetailItem label="Meeting Person Name" value={formatValue(selectedReport.meeting_person_name)} />
-                                <DetailItem label="Meeting Department" value={formatValue(selectedReport.meeting_department)} />
-                                <DetailItem label="Meeting Designation" value={formatValue(selectedReport.meeting_designation)} />
-                                <DetailItem label="Meeting Person Criteria" value={formatValue(selectedReport.meeting_person_criteria)} />
-                                <DetailItem label="Meeting Phone" value={formatValue(selectedReport.meeting_phone)} />
-                                <DetailItem label="Meeting Email" value={formatValue(selectedReport.meeting_email)} />
+                                <div className="md:col-span-2 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                                        Meeting Persons
+                                    </p>
+                                    {meetingPersons.length ? (
+                                        <div className="mt-2 space-y-2">
+                                            {meetingPersons.map((person, index) => (
+                                                <div key={`meeting-person-${index}`} className="rounded-lg border border-zinc-200 bg-white p-3">
+                                                    <p className="text-sm font-semibold text-zinc-900">
+                                                        {person.meeting_person_name || "-"}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-zinc-600">
+                                                        Dept: {person.meeting_department || "-"} | Designation: {person.meeting_designation || "-"}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-zinc-600">
+                                                        Criteria: {person.meeting_person_criteria || "-"} | Phone: {person.meeting_phone || "-"} | Email: {person.meeting_email || "-"}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="mt-1 text-sm text-zinc-900">-</p>
+                                    )}
+                                </div>
                                 <DetailItem
                                     className="md:col-span-2"
                                     label="Previous Feedback"
@@ -186,6 +256,8 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
                                 <DetailItem label="Next Follow-up Date" value={formatValue(selectedReport.next_followup_date)} />
                                 <DetailItem label="Status" value={formatValue(selectedReport.status)} />
                             </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

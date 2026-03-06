@@ -14,6 +14,14 @@ const DEFAULT_PRODUCT_CATEGORY_ROWS = DEFAULT_PRODUCT_CATEGORIES.map((name, idx)
     id: idx + 1,
     category_name: name,
 }));
+const EMPTY_MEETING_PERSON = {
+    meeting_person_name: "",
+    meeting_department: "",
+    meeting_designation: "",
+    meeting_person_criteria: "",
+    meeting_phone: "",
+    meeting_email: "",
+};
 
 function normalizeCategoryRow(row, idx = 0) {
     if (!row) return null;
@@ -66,6 +74,48 @@ function extractCategoryRows(responseData) {
     return deduped;
 }
 
+function normalizeMeetingPersonEntry(person) {
+    return {
+        meeting_person_name: (person?.meeting_person_name || "").toString().trim(),
+        meeting_department: (person?.meeting_department || "").toString().trim(),
+        meeting_designation: (person?.meeting_designation || "").toString().trim(),
+        meeting_person_criteria: (person?.meeting_person_criteria || "").toString().trim(),
+        meeting_phone: (person?.meeting_phone || "").toString().trim(),
+        meeting_email: (person?.meeting_email || "").toString().trim(),
+    };
+}
+
+function extractMeetingPersons(item) {
+    const raw = item?.meeting_persons_details;
+    if (Array.isArray(raw)) {
+        const list = raw.map(normalizeMeetingPersonEntry).filter((person) => Object.values(person).some(Boolean));
+        return list.length ? list : [{ ...EMPTY_MEETING_PERSON }];
+    }
+
+    if (typeof raw === "string" && raw.trim()) {
+        try {
+            const parsed = JSON.parse(raw);
+            const list = Array.isArray(parsed)
+                ? parsed.map(normalizeMeetingPersonEntry).filter((person) => Object.values(person).some(Boolean))
+                : [];
+            if (list.length) return list;
+        } catch (_e) {
+            // Keep fallback behavior below when invalid JSON is received.
+        }
+    }
+
+    const legacy = normalizeMeetingPersonEntry({
+        meeting_person_name: item?.meeting_person_name || "",
+        meeting_department: item?.meeting_department || "",
+        meeting_designation: item?.meeting_designation || "",
+        meeting_person_criteria: item?.meeting_person_criteria || "",
+        meeting_phone: item?.meeting_phone || "",
+        meeting_email: item?.meeting_email || "",
+    });
+
+    return Object.values(legacy).some(Boolean) ? [legacy] : [{ ...EMPTY_MEETING_PERSON }];
+}
+
 export default function CreateVisitReport() {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
@@ -109,12 +159,7 @@ export default function CreateVisitReport() {
         customer_priority: "A",
         visit_agenda: [],
 
-        dealing_person_name: "",
-        department: "",
-        designation: "",
-        meeting_person_criteria: "",
-        phone_number: "",
-        email: "",
+        meeting_persons_details: [{ ...EMPTY_MEETING_PERSON }],
 
         previous_plan_feedback: "",
         next_plan: "",
@@ -208,12 +253,7 @@ export default function CreateVisitReport() {
                 product_category_id: item?.product_category_id || "",
                 customer_priority: item?.customer_priority || "A",
                 visit_agenda: parsedAgenda,
-                dealing_person_name: item?.meeting_person_name || "",
-                department: item?.meeting_department || "",
-                designation: item?.meeting_designation || "",
-                meeting_person_criteria: item?.meeting_person_criteria || "",
-                phone_number: item?.meeting_phone || "",
-                email: item?.meeting_email || "",
+                meeting_persons_details: extractMeetingPersons(item),
                 previous_plan_feedback: item?.previous_feedback || "",
                 next_plan: item?.next_action_plan || "",
                 next_followup_date: item?.next_followup_date || "",
@@ -259,6 +299,37 @@ export default function CreateVisitReport() {
                 ? prev.visit_agenda.filter((i) => i !== item)
                 : [...prev.visit_agenda, item]
         }));
+    };
+
+    const updateMeetingPerson = (index, key, value) => {
+        setForm((prev) => ({
+            ...prev,
+            meeting_persons_details: prev.meeting_persons_details.map((person, i) =>
+                i === index ? { ...person, [key]: value } : person,
+            ),
+        }));
+    };
+
+    const addMeetingPersonRow = () => {
+        setForm((prev) => ({
+            ...prev,
+            meeting_persons_details: [...prev.meeting_persons_details, { ...EMPTY_MEETING_PERSON }],
+        }));
+    };
+
+    const removeMeetingPersonRow = (indexToRemove) => {
+        setForm((prev) => {
+            if (prev.meeting_persons_details.length <= 1) {
+                return {
+                    ...prev,
+                    meeting_persons_details: [{ ...EMPTY_MEETING_PERSON }],
+                };
+            }
+            return {
+                ...prev,
+                meeting_persons_details: prev.meeting_persons_details.filter((_, index) => index !== indexToRemove),
+            };
+        });
     };
 
     const addCustomProductCategory = async () => {
@@ -392,6 +463,27 @@ export default function CreateVisitReport() {
                     ? "Complete"
                     : "Reschedule";
 
+            const normalizedMeetingPersonsDetails = (form.meeting_persons_details || [])
+                .map(normalizeMeetingPersonEntry)
+                .filter((person) => Object.values(person).some(Boolean));
+
+            if (!normalizedMeetingPersonsDetails.length) {
+                alert("Please add at least one meeting person");
+                return;
+            }
+
+            const hasIncompleteMeetingPerson = normalizedMeetingPersonsDetails.some(
+                (person) =>
+                    !person.meeting_person_name ||
+                    !person.meeting_department ||
+                    !person.meeting_phone,
+            );
+
+            if (hasIncompleteMeetingPerson) {
+                alert("Each meeting person must include name, department and phone number");
+                return;
+            }
+
             const payload = {
                 visit_date: form.visit_date,
                 sales_person_name: form.sales_person_name,
@@ -407,12 +499,7 @@ export default function CreateVisitReport() {
                     ? Number(form.product_category_id)
                     : null,
                 visit_agenda: form.visit_agenda,
-                meeting_person_name: form.dealing_person_name,
-                meeting_department: form.department,
-                meeting_designation: form.designation,
-                meeting_person_criteria: form.meeting_person_criteria,
-                meeting_phone: form.phone_number,
-                meeting_email: form.email,
+                meeting_persons_details: normalizedMeetingPersonsDetails,
                 previous_feedback: form.previous_plan_feedback,
                 next_action_plan: form.next_plan,
                 next_followup_date: form.next_followup_date,
@@ -462,12 +549,7 @@ export default function CreateVisitReport() {
                 customer_priority: "A",
                 visit_agenda: [],
 
-                dealing_person_name: "",
-                department: "",
-                designation: "",
-                meeting_person_criteria: "",
-                phone_number: "",
-                email: "",
+                meeting_persons_details: [{ ...EMPTY_MEETING_PERSON }],
 
                 previous_plan_feedback: "",
                 next_plan: "",
@@ -682,47 +764,64 @@ export default function CreateVisitReport() {
 
           {/* MEETING PERSON */}
           <Section title="Meeting Person Details">
-            <Grid>
-              <Input
-                label="Dealing Person Name"
-                name="dealing_person_name"
-                value={form.dealing_person_name}
-                onChange={handleChange}
-                required
-              />
-              <Input
-                label="Department"
-                name="department"
-                value={form.department}
-                onChange={handleChange}
-                required
-              />
-              <Input
-                label="Designation"
-                name="designation"
-                value={form.designation}
-                onChange={handleChange}
-              />
-              <Input
-                label="Meeting Person Criteria"
-                name="meeting_person_criteria"
-                value={form.meeting_person_criteria}
-                onChange={handleChange}
-              />
-              <Input
-                label="Phone Number"
-                name="phone_number"
-                value={form.phone_number}
-                onChange={handleChange}
-                required
-              />
-              <Input
-                label="Email Address"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-              />
-            </Grid>
+            <div className="space-y-4">
+              {(form.meeting_persons_details || []).map((person, index) => (
+                <div key={`meeting-person-${index}`} className="rounded-xl border border-gray-200 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-700">Meeting Person {index + 1}</p>
+                    <button
+                      type="button"
+                      onClick={() => removeMeetingPersonRow(index)}
+                      className="rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <Grid>
+                    <Input
+                      label="Dealing Person Name"
+                      value={person.meeting_person_name}
+                      onChange={(e) => updateMeetingPerson(index, "meeting_person_name", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Department"
+                      value={person.meeting_department}
+                      onChange={(e) => updateMeetingPerson(index, "meeting_department", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Designation"
+                      value={person.meeting_designation}
+                      onChange={(e) => updateMeetingPerson(index, "meeting_designation", e.target.value)}
+                    />
+                    <Input
+                      label="Meeting Person Criteria"
+                      value={person.meeting_person_criteria}
+                      onChange={(e) => updateMeetingPerson(index, "meeting_person_criteria", e.target.value)}
+                    />
+                    <Input
+                      label="Phone Number"
+                      value={person.meeting_phone}
+                      onChange={(e) => updateMeetingPerson(index, "meeting_phone", e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Email Address"
+                      value={person.meeting_email}
+                      onChange={(e) => updateMeetingPerson(index, "meeting_email", e.target.value)}
+                    />
+                  </Grid>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addMeetingPersonRow}
+                className="rounded-lg border px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+              >
+                Add More Meeting Person
+              </button>
+            </div>
           </Section>
 
           {/* FEEDBACK */}
