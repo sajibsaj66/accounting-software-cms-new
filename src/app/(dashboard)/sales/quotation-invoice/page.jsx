@@ -145,56 +145,153 @@ const QuotationInvoice = () => {
   const dateTimeText = quotationData?.sale_created_isodt
     ? new Date(quotationData.sale_created_isodt).toLocaleString()
     : "-";
-
-  const handlePrint = () => {
-    const target = invoiceRef.current;
-    if (!target) return;
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    const headStyles = Array.from(
-      document.querySelectorAll("style, link[rel='stylesheet']")
-    )
-      .map((node) => node.outerHTML)
-      .join("\n");
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${quotationData?.sale_invoice || "quotation-invoice"}</title>
-          ${headStyles}
-          <style>
-            body { font-family: Arial, sans-serif; margin: 24px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #d5d5d5; padding: 6px; font-size: 12px; }
-          </style>
-        </head>
-        <body>${target.innerHTML}</body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+  const selectedBrand = optionGroupB;
+  const showBrandHeaderFooter = selectedBrand === "SKF" || selectedBrand === "NTN";
+  const termColumns = useMemo(() => {
+    if (!termsAndConditions.length) return [[], []];
+    if (!showBrandHeaderFooter || termsAndConditions.length < 4) return [termsAndConditions, []];
+    const midpoint = Math.ceil(termsAndConditions.length / 2);
+    return [termsAndConditions.slice(0, midpoint), termsAndConditions.slice(midpoint)];
+  }, [termsAndConditions, showBrandHeaderFooter]);
+  const assetBase = typeof window !== "undefined" ? window.location.origin : "";
+  const brandMeta = {
+    SKF: {
+      logo: `${assetBase}/skf-logo.svg`,
+      footerLine: "SKF Authorized Industrial Distributor",
+    },
+    NTN: {
+      logo: `${assetBase}/ntn-middle-east.svg`,
+      footerLine: "NTN Authorized Industrial Distributor",
+    },
   };
+  const activeBrand = showBrandHeaderFooter ? brandMeta[selectedBrand] : null;
+  const institutionName = "SHARIF BEARING & MACHINERIES";
+  const institutionTaglineBn = "শরিফ বিয়ারিং এন্ড মেশিনারিজ";
+  const institutionBusinessLine =
+    "Importer, Wholesaler & Retailer of all kinds of Ball, Taper and Roller Bearings";
+  const institutionAddressLine = "Address: 89 Nawabpur Road, Nawabpur, Dhaka-1100, Bangladesh";
+  const institutionPhoneLine =
+    "Telephone: +88-02-47117674, 223386738, Mobile: +88 01711-843583, +88 01300-027111";
+  const institutionEmailLine = "Email: nawabpur.sharifbearing@gmail.com";
+  const headerLogoSrc = `${assetBase}/sbm-header-logo.svg`;
 
-  const handleDownloadPdf = () => {
-    const loadScript = (src) =>
-      new Promise((resolve, reject) => {
-        const existing = document.querySelector(`script[src="${src}"]`);
-        if (existing) {
-          resolve();
-          return;
-        }
-        const script = document.createElement("script");
-        script.src = src;
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-        document.body.appendChild(script);
-      });
+  const renderBrandHeader = (isPdf = false, className = "") =>
+    showBrandHeaderFooter ? (
+      <Box className={className} sx={{ mb: 1.5 }}>
+        <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start", pb: 1 }}>
+          <Box
+            sx={{
+              width: 84,
+              height: 84,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Box component="img" src={headerLogoSrc} alt="SBM" crossOrigin="anonymous" sx={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </Box>
+          <Box sx={{ flex: 1, textAlign: "center", pr: isPdf ? 10 : { xs: 0, md: 10 }, pt: 0.25 }}>
+            {!!institutionTaglineBn && (
+              <Typography sx={{ fontSize: 20, fontWeight: 700, lineHeight: 1.05, mb: 0.25 }}>
+                {institutionTaglineBn}
+              </Typography>
+            )}
+            <Typography sx={{ fontWeight: 800, color: "#5d8f43", fontSize: isPdf ? 30 : { xs: 24, md: 34 }, lineHeight: 1.05, letterSpacing: 0.6 }}>
+              {institutionName}
+            </Typography>
+            <Typography sx={{ fontSize: 12, lineHeight: 1.15 }}>{institutionBusinessLine}</Typography>
+            <Typography sx={{ fontSize: 12, lineHeight: 1.15 }}>{institutionAddressLine}</Typography>
+            <Typography sx={{ fontSize: 12, lineHeight: 1.15 }}>{institutionPhoneLine}</Typography>
+            <Typography sx={{ fontSize: 12, lineHeight: 1.15 }}>{institutionEmailLine}</Typography>
+          </Box>
+        </Box>
+        <Divider sx={{ borderColor: "#3f6db5", borderBottomWidth: 2 }} />
+        <Typography sx={{ textAlign: "center", fontWeight: 700, fontSize: 48 / 2, textDecoration: "underline", mt: 1, mb: 1.5 }}>
+          Quotation
+        </Typography>
+      </Box>
+    ) : null;
 
-    const run = async () => {
+  const renderBrandFooter = (className = "") =>
+    showBrandHeaderFooter ? (
+      <Box
+        className={className}
+        sx={{
+          mt: "auto",
+          mb: "5px",
+          border: "1px solid #9db3de",
+          borderRadius: 1,
+          overflow: "hidden",
+          display: "grid",
+          gridTemplateColumns: "170px 1fr",
+          pageBreakInside: "avoid",
+          breakInside: "avoid",
+          breakBefore: "avoid-page",
+          WebkitPrintColorAdjust: "exact",
+          printColorAdjust: "exact",
+        }}
+      >
+        <Box
+          sx={{
+            background: "#ffffff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            p: 1.5,
+            borderRight: "1px solid #9db3de",
+            WebkitPrintColorAdjust: "exact",
+            printColorAdjust: "exact",
+          }}
+        >
+          <Box component="img" src={activeBrand?.logo} alt={selectedBrand} crossOrigin="anonymous" sx={{ maxWidth: "100%", maxHeight: 44, objectFit: "contain" }} />
+        </Box>
+        <Box>
+          <Box
+            sx={{
+              py: 1,
+              px: 2,
+              textAlign: "center",
+              background: "#8fa6d0",
+              WebkitPrintColorAdjust: "exact",
+              printColorAdjust: "exact",
+            }}
+          >
+            <Typography sx={{ fontWeight: 700, color: "#173361" }}>{institutionName}</Typography>
+          </Box>
+          <Box
+            sx={{
+              py: 1,
+              px: 2,
+              textAlign: "center",
+              background: "#5d74be",
+              WebkitPrintColorAdjust: "exact",
+              printColorAdjust: "exact",
+            }}
+          >
+            <Typography sx={{ fontWeight: 700, color: "#fff" }}>{activeBrand?.footerLine}</Typography>
+          </Box>
+        </Box>
+      </Box>
+    ) : null;
+
+  const loadScript = (src) =>
+    new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+      document.body.appendChild(script);
+    });
+
+  const buildPdfDocument = async () => {
       const target = pdfRef.current || invoiceRef.current;
-      if (!target) return;
+      if (!target) return null;
 
       await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
       await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
@@ -203,38 +300,100 @@ const QuotationInvoice = () => {
       const jsPDFCtor = window?.jspdf?.jsPDF;
       if (!html2canvasFn || !jsPDFCtor) {
         alert("PDF libraries failed to load.");
-        return;
+        return null;
       }
 
-      const canvas = await html2canvasFn(target, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-
-      const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDFCtor("p", "pt", "a4");
-
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 16;
-      const contentWidth = pageWidth - margin * 2;
-      const contentHeight = (canvas.height * contentWidth) / canvas.width;
+      const marginX = 16;
+      const marginY = 16;
+      const contentWidth = pageWidth - marginX * 2;
 
-      let heightLeft = contentHeight;
-      const pageContentHeight = pageHeight - margin * 2;
-      let position = margin;
+      const waitForImages = async (el) => {
+        const imgs = Array.from(el?.querySelectorAll?.("img") || []);
+        if (!imgs.length) return;
+        await Promise.all(
+          imgs.map(
+            (img) =>
+              new Promise((resolve) => {
+                if (img.complete) resolve();
+                else {
+                  img.onload = () => resolve();
+                  img.onerror = () => resolve();
+                }
+              })
+          )
+        );
+      };
+      await waitForImages(target);
 
-      pdf.addImage(imgData, "PNG", margin, position, contentWidth, contentHeight);
-      heightLeft -= pageContentHeight;
+      const headerEl = target.querySelector(".pdf-header");
+      const footerEl = target.querySelector(".pdf-footer");
+      const bodyEl = target.querySelector(".pdf-body-wrapper") || target;
 
-      while (heightLeft > 0) {
-        position = heightLeft - contentHeight + margin;
+      const [bodyCanvas, headerCanvas, footerCanvas] = await Promise.all([
+        html2canvasFn(bodyEl, { scale: 2, useCORS: true, backgroundColor: "#ffffff" }),
+        showBrandHeaderFooter && headerEl
+          ? html2canvasFn(headerEl, { scale: 2, useCORS: true, backgroundColor: "#ffffff" })
+          : Promise.resolve(null),
+        showBrandHeaderFooter && footerEl
+          ? html2canvasFn(footerEl, { scale: 2, useCORS: true, backgroundColor: "#ffffff" })
+          : Promise.resolve(null),
+      ]);
+
+      const bodyImg = bodyCanvas.toDataURL("image/png");
+      const headerImg = headerCanvas ? headerCanvas.toDataURL("image/png") : null;
+      const footerImg = footerCanvas ? footerCanvas.toDataURL("image/png") : null;
+
+      const headerHeight = headerCanvas ? (headerCanvas.height * contentWidth) / headerCanvas.width : 0;
+      const footerHeight = footerCanvas ? (footerCanvas.height * contentWidth) / footerCanvas.width : 0;
+      const bodyTop = marginY + (showBrandHeaderFooter ? headerHeight + 8 : 0);
+      const bodyBottom = pageHeight - marginY - (showBrandHeaderFooter ? footerHeight + 8 : 0);
+      const bodyPageHeight = Math.max(120, bodyBottom - bodyTop);
+      const bodyRenderHeight = (bodyCanvas.height * contentWidth) / bodyCanvas.width;
+
+      const drawPageShell = () => {
+        if (!showBrandHeaderFooter) return;
+        if (headerImg) pdf.addImage(headerImg, "PNG", marginX, marginY, contentWidth, headerHeight);
+        if (footerImg) pdf.addImage(footerImg, "PNG", marginX, pageHeight - marginY - footerHeight, contentWidth, footerHeight);
+      };
+
+      let remaining = bodyRenderHeight;
+      let position = bodyTop;
+      drawPageShell();
+      pdf.addImage(bodyImg, "PNG", marginX, position, contentWidth, bodyRenderHeight);
+      remaining -= bodyPageHeight;
+
+      while (remaining > 0) {
+        position = remaining - bodyRenderHeight + bodyTop;
         pdf.addPage();
-        pdf.addImage(imgData, "PNG", margin, position, contentWidth, contentHeight);
-        heightLeft -= pageContentHeight;
+        drawPageShell();
+        pdf.addImage(bodyImg, "PNG", marginX, position, contentWidth, bodyRenderHeight);
+        remaining -= bodyPageHeight;
       }
 
+      return pdf;
+    };
+
+  const handlePrint = () => {
+    buildPdfDocument()
+      .then((pdf) => {
+        if (!pdf) return;
+        pdf.autoPrint();
+        const blobUrl = pdf.output("bloburl");
+        window.open(blobUrl, "_blank");
+      })
+      .catch((error) => {
+        console.error("[QuotationInvoice] PDF print failed", error);
+        alert("Failed to print PDF.");
+      });
+  };
+
+  const handleDownloadPdf = () => {
+    const run = async () => {
+      const pdf = await buildPdfDocument();
+      if (!pdf) return;
       pdf.save(`${quotationData?.sale_invoice || "quotation-invoice"}.pdf`);
     };
 
@@ -329,24 +488,32 @@ const QuotationInvoice = () => {
           <Typography sx={{ mt: 1, fontSize: 13, color: "#666" }}>Loading invoice data...</Typography>
         )}
 
-        <Box ref={invoiceRef}>
+        <Box
+          ref={invoiceRef}
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+        {renderBrandHeader(false)}
+        <Box>
         {showOptionATemplate ? (
           <>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
+            <Box sx={{ mt: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 3, flexWrap: { xs: "wrap", md: "nowrap" } }}>
+              <Box sx={{ width: { xs: "100%", md: "48%" } }}>
                 <Typography><b>Customer ID :</b> {quotationData?.customer_code || quotationData?.customer_id || "-"}</Typography>
                 <Typography><b>Customer Name :</b> {quotationData?.customer_name || "-"}</Typography>
                 <Typography><b>Institution Name :</b> {quotationData?.customer_institution_name || institutionData?.institution_name || "-"}</Typography>
                 <Typography><b>Customer Address :</b> {quotationData?.customer_address || "-"}</Typography>
                 <Typography><b>Customer Mobile :</b> {quotationData?.customer_mobile_no || "-"}</Typography>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={6}>
+              <Box sx={{ width: { xs: "100%", md: "48%" }, ml: { xs: 0, md: "auto" }, textAlign: { xs: "left", md: "right" } }}>
                 <Typography><b>Quotation By :</b> {quotationData?.user_full_name || quotationData?.employee_name || "-"}</Typography>
                 <Typography><b>Invoice No :</b> {quotationData?.sale_invoice || invoiceNo || "-"}</Typography>
                 <Typography><b>Date & Time :</b> {dateTimeText}</Typography>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             <Table size="small" sx={{ mt: 2, border: "1px solid #d5d5d5" }}>
               <TableHead sx={{ background: "#eceff3" }}>
@@ -380,17 +547,30 @@ const QuotationInvoice = () => {
             </Table>
 
             <Box sx={{ mt: 3 }}>
-              <Typography>In Word : Twelve Thousand Five Hundred and only</Typography>
-              <Typography sx={{ mt: 2 }}>Note : N/A</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: showBrandHeaderFooter ? "1fr 1fr" : "1fr" }, columnGap: 3, rowGap: 1 }}>
+                <Typography>In Word : Twelve Thousand Five Hundred and only</Typography>
+                <Typography>Note : N/A</Typography>
+              </Box>
               {!!termsAndConditions.length && (
                 <Box sx={{ mt: 2 }}>
                   <Typography sx={{ fontWeight: 700 }}>Terms & Conditions:</Typography>
-                  <Box component="ul" sx={{ m: 0, pl: 3 }}>
-                    {termsAndConditions.map((term, idx) => (
-                      <Box component="li" key={`${idx}-${term}`}>
-                        <Typography>{term}</Typography>
+                  <Box sx={{ display: "grid", gridTemplateColumns: showBrandHeaderFooter && termColumns[1].length ? "1fr 1fr" : "1fr", columnGap: 4 }}>
+                    <Box component="ul" sx={{ m: 0, pl: 3 }}>
+                      {termColumns[0].map((term, idx) => (
+                        <Box component="li" key={`a-left-${idx}-${term}`} sx={{ mb: 0.25 }}>
+                          <Typography sx={{ lineHeight: 1.4 }}>{term}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                    {!!termColumns[1].length && (
+                      <Box component="ul" sx={{ m: 0, pl: 3 }}>
+                        {termColumns[1].map((term, idx) => (
+                          <Box component="li" key={`a-right-${idx}-${term}`} sx={{ mb: 0.25 }}>
+                            <Typography sx={{ lineHeight: 1.4 }}>{term}</Typography>
+                          </Box>
+                        ))}
                       </Box>
-                    ))}
+                    )}
                   </Box>
                 </Box>
               )}
@@ -398,21 +578,21 @@ const QuotationInvoice = () => {
           </>
         ) : (
           <>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
+            <Box sx={{ mt: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 3, flexWrap: { xs: "wrap", md: "nowrap" } }}>
+              <Box sx={{ width: { xs: "100%", md: "48%" } }}>
                 <Typography><b>Customer ID :</b> {quotationData?.customer_code || quotationData?.customer_id || "-"}</Typography>
                 <Typography><b>Customer Name :</b> {quotationData?.customer_name || "-"}</Typography>
                 <Typography><b>Institution Name :</b> {quotationData?.customer_institution_name || institutionData?.institution_name || "-"}</Typography>
                 <Typography><b>Customer Address :</b> {quotationData?.customer_address || "-"}</Typography>
                 <Typography><b>Customer Mobile :</b> {quotationData?.customer_mobile_no || "-"}</Typography>
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} md={6}>
+              <Box sx={{ width: { xs: "100%", md: "48%" }, ml: { xs: 0, md: "auto" }, textAlign: { xs: "left", md: "right" } }}>
                 <Typography><b>Quotation By :</b> {quotationData?.user_full_name || quotationData?.employee_name || "-"}</Typography>
                 <Typography><b>Invoice No :</b> {quotationData?.sale_invoice || invoiceNo || "-"}</Typography>
                 <Typography><b>Date & Time :</b> {dateTimeText}</Typography>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             <Table size="small" sx={{ mt: 2, border: "1px solid #d5d5d5" }}>
               <TableHead sx={{ background: "#eceff3" }}>
@@ -449,7 +629,7 @@ const QuotationInvoice = () => {
               </TableBody>
             </Table>
 
-            <Box sx={{ width: { xs: "100%", md: "50%" }, ml: "auto", mt: 1 }}>
+            <Box className="print-avoid-break" sx={{ width: { xs: "100%", md: "50%" }, ml: "auto", mt: 1 }}>
               <Box sx={{ display: "flex", justifyContent: "space-between", p: 1.5, borderBottom: "1px solid #e1e1e1" }}>
                 <Typography>Sub Total :</Typography>
                 <Typography>{money(quotationData?.sale_subtotal_amount)}</Typography>
@@ -473,26 +653,40 @@ const QuotationInvoice = () => {
               </Box>
             </Box>
 
-            <Box sx={{ mt: 3 }}>
-              <Typography>In Word : Twelve Thousand Five Hundred and only</Typography>
-              <Typography sx={{ mt: 2 }}>Note : N/A</Typography>
+            <Box className="print-avoid-break" sx={{ mt: 3 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: showBrandHeaderFooter ? "1fr 1fr" : "1fr" }, columnGap: 3, rowGap: 1 }}>
+                <Typography>In Word : Twelve Thousand Five Hundred and only</Typography>
+                <Typography>Note : N/A</Typography>
+              </Box>
               {!!termsAndConditions.length && (
                 <Box sx={{ mt: 2 }}>
                   <Typography sx={{ fontWeight: 700 }}>Terms & Conditions:</Typography>
-                  <Box component="ul" sx={{ m: 0, pl: 3 }}>
-                    {termsAndConditions.map((term, idx) => (
-                      <Box component="li" key={`${idx}-${term}`}>
-                        <Typography>{term}</Typography>
+                  <Box sx={{ display: "grid", gridTemplateColumns: showBrandHeaderFooter && termColumns[1].length ? "1fr 1fr" : "1fr", columnGap: 4 }}>
+                    <Box component="ul" sx={{ m: 0, pl: 3 }}>
+                      {termColumns[0].map((term, idx) => (
+                        <Box component="li" key={`b-left-${idx}-${term}`} sx={{ mb: 0.25 }}>
+                          <Typography sx={{ lineHeight: 1.4 }}>{term}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                    {!!termColumns[1].length && (
+                      <Box component="ul" sx={{ m: 0, pl: 3 }}>
+                        {termColumns[1].map((term, idx) => (
+                          <Box component="li" key={`b-right-${idx}-${term}`} sx={{ mb: 0.25 }}>
+                            <Typography sx={{ lineHeight: 1.4 }}>{term}</Typography>
+                          </Box>
+                        ))}
                       </Box>
-                    ))}
+                    )}
                   </Box>
                 </Box>
               )}
             </Box>
 
-            
           </>
         )}
+        </Box>
+        {renderBrandFooter()}
         </Box>
         <Box
           ref={pdfRef}
@@ -503,25 +697,31 @@ const QuotationInvoice = () => {
             width: 1100,
             background: "#fff",
             p: 3,
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <Typography sx={{ textAlign: "center", fontWeight: 700, fontSize: 28, mb: 2 }}>
-            Quotation Invoice
-          </Typography>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={6}>
+          {renderBrandHeader(true, "pdf-header")}
+          {!showBrandHeaderFooter && (
+            <Typography sx={{ textAlign: "center", fontWeight: 700, fontSize: 28, mb: 2 }}>
+              Quotation Invoice
+            </Typography>
+          )}
+          <Box className="pdf-body-wrapper">
+          <Box sx={{ mt: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 3 }}>
+            <Box sx={{ width: "48%" }}>
               <Typography><b>Customer ID :</b> {quotationData?.customer_code || quotationData?.customer_id || "-"}</Typography>
               <Typography><b>Customer Name :</b> {quotationData?.customer_name || "-"}</Typography>
               <Typography><b>Institution Name :</b> {quotationData?.customer_institution_name || institutionData?.institution_name || "-"}</Typography>
               <Typography><b>Customer Address :</b> {quotationData?.customer_address || "-"}</Typography>
               <Typography><b>Customer Mobile :</b> {quotationData?.customer_mobile_no || "-"}</Typography>
-            </Grid>
-            <Grid item xs={6}>
+            </Box>
+            <Box sx={{ width: "48%", ml: "auto", textAlign: "right" }}>
               <Typography><b>Quotation By :</b> {quotationData?.user_full_name || quotationData?.employee_name || "-"}</Typography>
               <Typography><b>Invoice No :</b> {quotationData?.sale_invoice || invoiceNo || "-"}</Typography>
               <Typography><b>Date & Time :</b> {dateTimeText}</Typography>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
 
           <Table size="small" sx={{ mt: 2, border: "1px solid #d5d5d5" }}>
             <TableHead sx={{ background: "#eceff3" }}>
@@ -558,7 +758,7 @@ const QuotationInvoice = () => {
             </TableBody>
           </Table>
 
-          <Box sx={{ width: "50%", ml: "auto", mt: 1 }}>
+          <Box className="print-avoid-break" sx={{ width: "50%", ml: "auto", mt: 1 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", p: 1.5, borderBottom: "1px solid #e1e1e1" }}>
               <Typography>Sub Total :</Typography>
               <Typography>{money(quotationData?.sale_subtotal_amount)}</Typography>
@@ -581,22 +781,37 @@ const QuotationInvoice = () => {
             </Box>
           </Box>
 
-          <Box sx={{ mt: 3 }}>
-            <Typography>In Word : Twelve Thousand Five Hundred and only</Typography>
-            <Typography sx={{ mt: 2 }}>Note : N/A</Typography>
+          <Box className="print-avoid-break" sx={{ mt: 3 }}>
+            <Box sx={{ display: "grid", gridTemplateColumns: showBrandHeaderFooter ? "1fr 1fr" : "1fr", columnGap: 3, rowGap: 1 }}>
+              <Typography>In Word : Twelve Thousand Five Hundred and only</Typography>
+              <Typography>Note : N/A</Typography>
+            </Box>
             {!!termsAndConditions.length && (
               <Box sx={{ mt: 2 }}>
                 <Typography sx={{ fontWeight: 700 }}>Terms & Conditions:</Typography>
-                <Box component="ul" sx={{ m: 0, pl: 3 }}>
-                  {termsAndConditions.map((term, idx) => (
-                    <Box component="li" key={`pdf-term-${idx}-${term}`}>
-                      <Typography>{term}</Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: showBrandHeaderFooter && termColumns[1].length ? "1fr 1fr" : "1fr", columnGap: 4 }}>
+                  <Box component="ul" sx={{ m: 0, pl: 3 }}>
+                    {termColumns[0].map((term, idx) => (
+                      <Box component="li" key={`pdf-left-${idx}-${term}`} sx={{ mb: 0.25 }}>
+                        <Typography sx={{ lineHeight: 1.4 }}>{term}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                  {!!termColumns[1].length && (
+                    <Box component="ul" sx={{ m: 0, pl: 3 }}>
+                      {termColumns[1].map((term, idx) => (
+                        <Box component="li" key={`pdf-right-${idx}-${term}`} sx={{ mb: 0.25 }}>
+                          <Typography sx={{ lineHeight: 1.4 }}>{term}</Typography>
+                        </Box>
+                      ))}
                     </Box>
-                  ))}
+                  )}
                 </Box>
               </Box>
             )}
           </Box>
+          </Box>
+          {renderBrandFooter("pdf-footer")}
         </Box>
       </Paper>
     </Box>

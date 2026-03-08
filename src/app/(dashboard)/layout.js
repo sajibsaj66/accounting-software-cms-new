@@ -2,7 +2,7 @@ import "./../globals.css";
 import ClientLayout from "@/component/ClientLayout";
 
 export const metadata = {
-  title: "CRM Pro",
+  title: "Salis ERP",
   description: "CRM Dashboard",
 };
 

@@ -590,10 +590,10 @@ const QuotationEntryStandalone = ({ apiBaseUrl, authToken, quotationId = null, o
             <Paper className={classes.paper} style={{ marginTop: '-25px', marginBottom: '5px' }}>
                 <h4 style={{ textAlign: 'left', margin: 0, padding: 0, marginTop: '-10px', marginBottom: '2px' }}>Quotation Entry</h4>
                 <Grid container spacing={3}>
-                    <Grid item xs={12} sm={2}>
+                    <Grid item xs={12} sm={3}>
                         <TextField label="invoice no" variant="outlined" value={sale_invoice} disabled className={classes.fullWidth} onChange={(e) => sale_invoice_set(e.target.value)} name="sale_invoice" />
                     </Grid>
-                    <Grid item xs={12} sm={2}>
+                    <Grid item xs={12} sm={6}>
                         <Autocomplete
                             size="small"
                             onKeyDown={(e) => {
@@ -619,7 +619,7 @@ const QuotationEntryStandalone = ({ apiBaseUrl, authToken, quotationId = null, o
                         />
                     </Grid>
 
-                    <Grid item xs={12} sm={2}>
+                    <Grid item xs={12} sm={3}>
                         <MuiPickersUtilsProvider utils={DateFnsUtils}>
                             <KeyboardDatePicker
                                 style={{ width: '100%', marginTop: '' }}

@@ -24,11 +24,13 @@ import EditIcon from "@mui/icons-material/Edit";
 import axios from "axios";
 import useAuth from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 
 const DRAFT_STORAGE_KEY = "quotation-entry-draft-v1";
 
 export default function QuotationEntry() {
   const authInfo = useAuth();
+  const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
   const optionItems = [
@@ -365,8 +367,16 @@ export default function QuotationEntry() {
       }
 
       alert(res?.data?.message?.msg || "Quotation saved successfully");
+      const saved = res?.data?.message || {};
+      const savedSaleId = saved?.sale_id || saved?.saleId || saved?.quotationId || "";
+      const savedInvoice = saved?.sale_invoice || saleInvoice || "";
       clearQuotation();
       getInvoice();
+      if (savedSaleId) {
+        router.push(`/sales/quotation-invoice?saleId=${encodeURIComponent(String(savedSaleId))}&invoice=${encodeURIComponent(String(savedInvoice))}`);
+      } else {
+        router.push("/sales/quotation-invoice");
+      }
     } catch (error) {
       alert(error?.response?.data?.message || "Quotation save failed");
     } finally {
@@ -521,18 +531,26 @@ export default function QuotationEntry() {
         <Typography variant="h6">Quotation Entry</Typography>
 
         <Grid container spacing={3} mt={1}>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2}>
             <TextField label="Invoice No" value={saleInvoice} fullWidth disabled />
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={7}>
             <Autocomplete
+              sx={{ width: "100%", minWidth: { md: 380 } }}
               options={employees}
               getOptionLabel={(option) => option?.employee_name || ""}
               value={selectedEmployee}
               onChange={(_, value) => setSelectedEmployee(value)}
               isOptionEqualToValue={(option, value) => option?.employee_id === value?.employee_id}
-              renderInput={(params) => <TextField {...params} label="Quotation By" fullWidth />}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Quotation By"
+                  fullWidth
+                  sx={{ "& .MuiInputBase-root": { minWidth: { md: 380 } } }}
+                />
+              )}
             />
           </Grid>
 

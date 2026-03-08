@@ -31,12 +31,7 @@ export default function SideNav() {
 
             {/* LOGO */}
             <div className="h-16 flex items-center px-6 border-b border-zinc-200">
-                <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center text-white font-bold">
-                        C
-                    </div>
-                    <span className="font-semibold text-[28px] leading-none text-zinc-800">CRM Pro</span>
-                </div>
+                <span className="font-semibold text-[28px] leading-none text-zinc-800">Salis ERP</span>
             </div>
 
             {/* MENU */}

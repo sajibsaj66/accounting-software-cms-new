@@ -1,4 +1,4 @@
-import { Users, Briefcase, Calendar, DollarSign } from "lucide-react";
+import { UserRound, MapPinCheckInside, CalendarClock, FileText } from "lucide-react";
 
 export default function StatCard({ visits = [], totalCustomers, totalQuotations = 0 }) {
     const safeVisits = Array.isArray(visits) ? visits : [];
@@ -36,7 +36,7 @@ export default function StatCard({ visits = [], totalCustomers, totalQuotations 
         {
             title: "Total Customers",
             value: uniqueCustomers,
-            icon: Users,
+            icon: UserRound,
             iconBg: "bg-blue-100",
             iconText: "text-blue-600",
             trend: "+12%",
@@ -45,7 +45,7 @@ export default function StatCard({ visits = [], totalCustomers, totalQuotations 
         {
             title: "Total Visits",
             value: totalVisits,
-            icon: Briefcase,
+            icon: MapPinCheckInside,
             iconBg: "bg-green-100",
             iconText: "text-green-600",
             trend: "+8%",
@@ -54,7 +54,7 @@ export default function StatCard({ visits = [], totalCustomers, totalQuotations 
         {
             title: "Total Upcoming Follow-ups",
             value: upcomingFollowups,
-            icon: Calendar,
+            icon: CalendarClock,
             iconBg: "bg-orange-100",
             iconText: "text-orange-600",
             trend: "-5%",
@@ -63,7 +63,7 @@ export default function StatCard({ visits = [], totalCustomers, totalQuotations 
         {
             title: "Total Quotation Invoices",
             value: Number.isFinite(totalQuotations) ? totalQuotations : 0,
-            icon: DollarSign,
+            icon: FileText,
             iconBg: "bg-violet-100",
             iconText: "text-violet-600",
             trend: "+18%",

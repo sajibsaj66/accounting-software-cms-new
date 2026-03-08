@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="SBM logo">
+  <rect width="320" height="320" rx="8" fill="#ffffff"/>
+  <rect x="8" y="8" width="304" height="150" fill="#4f6ea9"/>
+  <rect x="8" y="162" width="304" height="150" fill="#57a16b"/>
+  <g transform="translate(160,83)">
+    <circle cx="0" cy="0" r="46" fill="none" stroke="#ffffff" stroke-width="9"/>
+    <circle cx="0" cy="0" r="18" fill="none" stroke="#ffffff" stroke-width="8"/>
+    <circle cx="0" cy="-62" r="8" fill="#ffffff"/>
+    <circle cx="44" cy="-44" r="8" fill="#ffffff"/>
+    <circle cx="62" cy="0" r="8" fill="#ffffff"/>
+    <circle cx="44" cy="44" r="8" fill="#ffffff"/>
+    <circle cx="0" cy="62" r="8" fill="#ffffff"/>
+    <circle cx="-44" cy="44" r="8" fill="#ffffff"/>
+    <circle cx="-62" cy="0" r="8" fill="#ffffff"/>
+    <circle cx="-44" cy="-44" r="8" fill="#ffffff"/>
+  </g>
+  <text x="20" y="255" fill="#ffffff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="120" font-style="italic" font-weight="900">SBM</text>
+</svg>

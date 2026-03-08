@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "CRM Pro",
+  title: "Salis ERP",
   description: "CRM Dashboard",
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, Search } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import useAuth from "@/hooks/useAuth";
 
@@ -29,25 +29,12 @@ export default function Header({ onMenuClick }) {
             </h1>
 
             <div className="ml-auto flex items-center gap-3">
-                <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-300 bg-white min-w-[250px]">
-                    <Search size={16} className="text-zinc-400" />
-                    <input
-                        type="text"
-                        placeholder="Search..."
-                        className="w-full bg-transparent text-sm text-zinc-700 placeholder:text-zinc-400 outline-none"
-                    />
-                </div>
-                <button className="h-9 w-9 rounded-full border border-zinc-300 bg-white flex items-center justify-center text-zinc-600 hover:bg-zinc-50">
-                    <Bell size={16} />
-                </button>
-                <div className="h-9 w-9 rounded-full bg-blue-500 text-white text-xs font-semibold flex items-center justify-center">
-                    JD
-                </div>
                 <button
                     onClick={() => logout()}
-                    className="py-2 px-3 cursor-pointer border border-zinc-300 bg-white text-zinc-700 rounded-lg hover:bg-zinc-100"
+                    className="inline-flex items-center gap-2 py-2 px-4 cursor-pointer border border-red-200 bg-red-600 text-white rounded-lg font-medium shadow-sm hover:bg-red-700 transition-colors"
                 >
-                    logout
+                    <LogOut size={16} />
+                    Log Out
                 </button>
             </div>
 

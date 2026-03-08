@@ -64,7 +64,7 @@ export default function LoginPage() {
                             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 text-xl font-bold">
                                 C
                             </div>
-                            <h1 className="text-4xl font-semibold leading-none">CRM Pro</h1>
+                            <h1 className="text-4xl font-semibold leading-none">Salis ERP</h1>
                         </div>
                         <p className="relative mt-8 max-w-sm text-base text-blue-100 leading-relaxed">
                             Manage customers, sales visits and follow-ups from one clean dashboard.
