@@ -7,6 +7,12 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
     const [selectedReport, setSelectedReport] = useState(null);
 
     const closeModal = () => setSelectedReport(null);
+    const formatDateValue = (value) => {
+        if (!value) return "-";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return formatValue(value);
+        return date.toLocaleDateString("en-CA");
+    };
     const formatValue = (value) => {
         if (value === null || value === undefined || value === "") return "-";
         if (Array.isArray(value)) return value.length ? value.join(", ") : "-";
@@ -204,10 +210,12 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
                                 const meetingPersons = getMeetingPersons(selectedReport);
                                 return (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                <DetailItem label="Visit Date" value={formatValue(selectedReport.visit_date)} />
+                                <DetailItem label="Visit Date" value={formatDateValue(selectedReport.visit_date)} />
                                 <DetailItem label="Sales Person Name" value={formatValue(selectedReport.sales_person_name)} />
+                                <DetailItem label="Sales Person Area" value={formatValue(selectedReport.sales_person_area)} />
                                 <DetailItem label="Customer Assignment" value={formatValue(selectedReport.customer_assignment)} />
                                 <DetailItem label="Customer Name" value={formatValue(selectedReport.customer_name)} />
+                                <DetailItem label="Customer Phone" value={formatValue(selectedReport.customer_phone)} />
                                 <DetailItem label="Customer Area" value={formatValue(selectedReport.customer_area)} />
                                 <DetailItem label="Customer Type" value={formatValue(selectedReport.customer_type)} />
                                 <DetailItem label="Customer Priority" value={formatValue(selectedReport.customer_priority)} />
@@ -253,7 +261,7 @@ const SalesVisitsReportsDetails = ({visitReports}) => {
                                     label="Next Action Plan"
                                     value={formatValue(selectedReport.next_action_plan)}
                                 />
-                                <DetailItem label="Next Follow-up Date" value={formatValue(selectedReport.next_followup_date)} />
+                                <DetailItem label="Next Follow-up Date" value={formatDateValue(selectedReport.next_followup_date)} />
                                 <DetailItem label="Status" value={formatValue(selectedReport.status)} />
                             </div>
                                 );

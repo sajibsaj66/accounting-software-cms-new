@@ -20,6 +20,9 @@ export default function RecentVisits({ visits = [] }) {
                                 {item.sales_person_name} •{" "}
                                 {new Date(item.visit_date).toISOString().split("T")[0]}
                             </p>
+                            <p className="text-xs text-zinc-400 mt-1">
+                                Area: {item.sales_person_area || "-"}
+                            </p>
                         </div>
 
                         <div className="flex gap-2">

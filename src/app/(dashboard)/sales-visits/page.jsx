@@ -116,9 +116,101 @@ function extractMeetingPersons(item) {
     return Object.values(legacy).some(Boolean) ? [legacy] : [{ ...EMPTY_MEETING_PERSON }];
 }
 
+function extractAreaFromGoogleResult(result) {
+    const components = Array.isArray(result?.address_components) ? result.address_components : [];
+    const preferredTypes = [
+        "sublocality_level_1",
+        "sublocality",
+        "neighborhood",
+        "locality",
+        "administrative_area_level_2",
+        "administrative_area_level_1",
+    ];
+
+    for (const type of preferredTypes) {
+        const match = components.find((component) => component.types?.includes(type));
+        if (match?.long_name) return match.long_name;
+    }
+
+    return result?.formatted_address || "";
+}
+
+async function reverseGeocodeSalesArea(latitude, longitude) {
+    const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+    if (googleApiKey) {
+        const googleRes = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${googleApiKey}`,
+        );
+
+        if (!googleRes.ok) {
+            throw new Error("Google geocoding request failed");
+        }
+
+        const googleData = await googleRes.json();
+        const topResult = googleData?.results?.[0];
+        const area = extractAreaFromGoogleResult(topResult);
+
+        if (area) return area;
+        throw new Error("Google could not resolve the current area");
+    }
+
+    const fallbackRes = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+    );
+
+    if (!fallbackRes.ok) {
+        throw new Error("Location lookup failed");
+    }
+
+    const fallbackData = await fallbackRes.json();
+    const address = fallbackData?.address || {};
+
+    return (
+        address.suburb ||
+        address.neighbourhood ||
+        address.city_district ||
+        address.city ||
+        address.county ||
+        fallbackData?.display_name ||
+        ""
+    );
+}
+
+function getCurrentDateForInput() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function formatDateForInput(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString().slice(0, 10);
+}
+
+function parseVisitAgenda(value) {
+    if (Array.isArray(value)) {
+        return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_err) {
+            //
+        }
+    }
+    return [];
+}
+
 export default function CreateVisitReport() {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
+    const { user, token } = useAuth();
     const [loading, setLoading] = useState(false);
     const [customerOptions, setCustomerOptions] = useState([]);
     const [productCategoryOptions, setProductCategoryOptions] = useState(DEFAULT_PRODUCT_CATEGORY_ROWS);
@@ -127,8 +219,8 @@ export default function CreateVisitReport() {
     const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
     const [customerSearch, setCustomerSearch] = useState("");
     const [editingReportId, setEditingReportId] = useState(null);
-
-  const { user, token } = useAuth();
+    const [isDetectingSalesArea, setIsDetectingSalesArea] = useState(false);
+    const [salesAreaError, setSalesAreaError] = useState("");
 
     // get sales visits reports
     const { data: visitReportsData = [], isLoading } = useQuery({
@@ -139,12 +231,20 @@ export default function CreateVisitReport() {
     }
     })
     
-  let visitReports = visitReportsData.data;
+  const visitReports = Array.isArray(visitReportsData?.data)
+    ? visitReportsData.data
+    : Array.isArray(visitReportsData?.data?.rows)
+      ? visitReportsData.data.rows
+      : Array.isArray(visitReportsData)
+        ? visitReportsData
+        : [];
+  
   
 
-    const [form, setForm] = useState({
-        visit_date: "",
+    const [form, setForm] = useState(() => ({
+        visit_date: getCurrentDateForInput(),
         sales_person_name: user?.full_name || "",
+        sales_person_area: "",
         customer_assignment: "Self",
 
         customer_name: "",
@@ -165,13 +265,69 @@ export default function CreateVisitReport() {
         next_plan: "",
         next_followup_date: "",
         status: "Reschedule",
-    });
+    }));
 
     useEffect(() => {
         if (user?.full_name) {
             setForm((prev) => ({ ...prev, sales_person_name: user.full_name }));
         }
     }, [user?.full_name]);
+
+    useEffect(() => {
+        const editId = searchParams.get("editId");
+        if (editId || typeof window === "undefined") return;
+        if (!navigator.geolocation) {
+            setSalesAreaError("Geolocation is not supported in this browser");
+            return;
+        }
+
+        let cancelled = false;
+        setIsDetectingSalesArea(true);
+        setSalesAreaError("");
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                try {
+                    const area = await reverseGeocodeSalesArea(
+                        position.coords.latitude,
+                        position.coords.longitude,
+                    );
+
+                    if (cancelled) return;
+
+                    setForm((prev) => ({
+                        ...prev,
+                        sales_person_area: prev.sales_person_area || area,
+                    }));
+
+                    if (!area) {
+                        setSalesAreaError("Current area could not be resolved");
+                    }
+                } catch (error) {
+                    if (cancelled) return;
+                    console.error("Failed to detect sales person area:", error);
+                    setSalesAreaError("Auto-detect failed. Please check location permission.");
+                } finally {
+                    if (!cancelled) setIsDetectingSalesArea(false);
+                }
+            },
+            (error) => {
+                if (cancelled) return;
+                console.error("Location permission denied:", error);
+                setSalesAreaError("Location permission denied");
+                setIsDetectingSalesArea(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 300000,
+            },
+        );
+
+        return () => {
+            cancelled = true;
+        };
+    }, [searchParams]);
 
     useEffect(() => {
         if (!token) return;
@@ -208,63 +364,45 @@ export default function CreateVisitReport() {
     }, []);
 
     useEffect(() => {
-        const editId = searchParams.get("editId");
-        if (!editId) {
+        const editIdParam = searchParams.get("editId");
+        if (!editIdParam) {
             setEditingReportId(null);
             return;
         }
-        if (typeof window === "undefined") return;
 
-        const raw = sessionStorage.getItem("salesVisitPrefill");
-        if (!raw) return;
-
-        try {
-            const item = JSON.parse(raw);
-            const parsedEditId = Number.parseInt(item?.id || editId, 10);
-            const parsedAgenda = Array.isArray(item?.visit_agenda)
-                ? item.visit_agenda
-                : typeof item?.visit_agenda === "string"
-                    ? (() => {
-                          try {
-                              const a = JSON.parse(item.visit_agenda);
-                              return Array.isArray(a) ? a : [];
-                          } catch (_e) {
-                              return [];
-                          }
-                      })()
-                    : [];
-
-            if (Number.isInteger(parsedEditId) && parsedEditId > 0) {
-                setEditingReportId(parsedEditId);
-            }
-
-            setForm((prev) => ({
-                ...prev,
-                visit_date: item?.visit_date || "",
-                sales_person_name: item?.sales_person_name || prev.sales_person_name,
-                customer_assignment: item?.customer_assignment || "Self",
-                customer_name: item?.customer_name || "",
-                customer_phone: item?.customer_phone || "",
-                customer_area: item?.customer_area || "",
-                customer_type: item?.customer_type || "Existing",
-                last_po_reference: item?.last_po_reference || "",
-                competitor: item?.competitor || "",
-                product_category: item?.product_category || "",
-                product_category_id: item?.product_category_id || "",
-                customer_priority: item?.customer_priority || "A",
-                visit_agenda: parsedAgenda,
-                meeting_persons_details: extractMeetingPersons(item),
-                previous_plan_feedback: item?.previous_feedback || "",
-                next_plan: item?.next_action_plan || "",
-                next_followup_date: item?.next_followup_date || "",
-                status: item?.status || "Reschedule",
-            }));
-        } catch (error) {
-            console.error("Failed to prefill visit form:", error);
-        } finally {
-            sessionStorage.removeItem("salesVisitPrefill");
+        const editId = Number(editIdParam);
+        if (!Number.isFinite(editId) || !visitReports.length) {
+            return;
         }
-    }, [searchParams]);
+
+        const record = visitReports.find((item) => Number(item?.id) === editId);
+        if (!record) return;
+
+        setEditingReportId(editId);
+
+        setForm((prev) => ({
+            ...prev,
+            visit_date: formatDateForInput(record.visit_date) || prev.visit_date,
+            sales_person_name: record.sales_person_name || prev.sales_person_name,
+            sales_person_area: record.sales_person_area || prev.sales_person_area,
+            customer_assignment: record.customer_assignment || "Self",
+            customer_name: record.customer_name || "",
+            customer_phone: record.customer_phone || "",
+            customer_area: record.customer_area || "",
+            customer_type: record.customer_type || "Existing",
+            last_po_reference: record.last_po_reference || "",
+            competitor: record.competitor || "",
+            product_category: record.product_category || "",
+            product_category_id: record.product_category_id || "",
+            customer_priority: record.customer_priority || "A",
+            visit_agenda: parseVisitAgenda(record.visit_agenda),
+            meeting_persons_details: extractMeetingPersons(record),
+            previous_plan_feedback: record.previous_feedback || "",
+            next_plan: record.next_action_plan || "",
+            next_followup_date: formatDateForInput(record.next_followup_date),
+            status: record.status || "Reschedule",
+        }));
+    }, [searchParams, visitReports]);
 
     /* ---------------- HANDLERS ---------------- */
 
@@ -487,6 +625,7 @@ export default function CreateVisitReport() {
             const payload = {
                 visit_date: form.visit_date,
                 sales_person_name: form.sales_person_name,
+                sales_person_area: form.sales_person_area,
                 customer_assignment: form.customer_assignment,
                 customer_name: form.customer_name,
                 customer_phone: form.customer_phone,
@@ -533,8 +672,9 @@ export default function CreateVisitReport() {
             );
 
             setForm({
-                visit_date: "",
+                visit_date: getCurrentDateForInput(),
                 sales_person_name: "",
+                sales_person_area: "",
                 customer_assignment: "Self",
 
                 customer_name: "",
@@ -597,6 +737,26 @@ export default function CreateVisitReport() {
                 onChange={handleChange}
                 required
               />
+              <div className="space-y-1">
+                <Input
+                  readOnly
+                  label="Sales Person Area"
+                  name="sales_person_area"
+                  value={
+                    form.sales_person_area ||
+                    (isDetectingSalesArea ? "Detecting current location..." : "")
+                  }
+                  onChange={handleChange}
+                  required
+                />
+                {salesAreaError ? (
+                  <p className="text-xs text-red-600">{salesAreaError}</p>
+                ) : isDetectingSalesArea ? (
+                  <p className="text-xs text-gray-500">
+                    Current area is being fetched from your device location.
+                  </p>
+                ) : null}
+              </div>
 
               <RadioGroup
                 label="Customer Assignment"
