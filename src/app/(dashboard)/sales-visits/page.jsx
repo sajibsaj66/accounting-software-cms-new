@@ -210,7 +210,7 @@ function parseVisitAgenda(value) {
 export default function CreateVisitReport() {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
-    const { user, token } = useAuth();
+    const { user, token, isLoading: isAuthLoading } = useAuth();
     const [loading, setLoading] = useState(false);
     const [customerOptions, setCustomerOptions] = useState([]);
     const [productCategoryOptions, setProductCategoryOptions] = useState(DEFAULT_PRODUCT_CATEGORY_ROWS);
@@ -224,11 +224,12 @@ export default function CreateVisitReport() {
 
     // get sales visits reports
     const { data: visitReportsData = [], isLoading } = useQuery({
-    queryKey: ['get-sales-visits-reports'],
+    queryKey: ['get-sales-visits-reports', token],
         queryFn: async () => {
             const res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customer-visit-reports`, { headers: { "auth-token": token } })
             return res.data;
-    }
+    },
+        enabled: Boolean(token),
     })
     
   const visitReports = Array.isArray(visitReportsData?.data)
@@ -586,8 +587,20 @@ export default function CreateVisitReport() {
     };
 
     const handleSubmit = async () => {
+        if (loading) return;
+
+        if (!token) {
+            alert("Your session is not ready. Please wait a moment and try again.");
+            return;
+        }
+
         if (!form.visit_date || !form.sales_person_name || !form.customer_name) {
             alert("Please fill all required fields");
+            return;
+        }
+
+        if (!form.next_plan || !form.status || !form.next_followup_date) {
+            alert("Please fill next plan, status and next follow-up date");
             return;
         }
 
@@ -645,17 +658,22 @@ export default function CreateVisitReport() {
                 status: normalizedStatus,
             };
 
+            const requestConfig = {
+                headers: { "auth-token": token },
+                timeout: 20000,
+            };
+
             const result = editingReportId
                 ? await axios.patch(
                       `${process.env.NEXT_PUBLIC_BASE_URL}/api/update-sales-customer-visit-report/${editingReportId}`,
-                  payload,
-                      { headers: { "auth-token": token } }
-                  )
+                      payload,
+                      requestConfig,
+                   )
                 : await axios.post(
                       `${process.env.NEXT_PUBLIC_BASE_URL}/api/create-sales-customer-visit-report`,
-                  payload,
-                      { headers: { "auth-token": token } }
-                  );
+                      payload,
+                      requestConfig,
+                   );
 
             if (result?.data?.error) {
                 throw new Error(result?.data?.message || "Submission failed");
@@ -663,6 +681,9 @@ export default function CreateVisitReport() {
 
             await queryClient.invalidateQueries({
                 queryKey: ["get-sales-visits-reports"],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["get-sales-visits-reports", token],
             });
 
             alert(
@@ -701,6 +722,9 @@ export default function CreateVisitReport() {
         } catch (err) {
             console.error(err);
             const message =
+                err?.code === "ECONNABORTED"
+                    ? "The server took too long to respond. Please try again."
+                    :
                 err?.response?.data?.message ||
                 err?.response?.data?.error ||
                 err?.message ||
@@ -1046,7 +1070,7 @@ export default function CreateVisitReport() {
             <button className="px-4 py-2 rounded-lg border">Cancel</button>
             <button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || isAuthLoading || !token}
               className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
             >
               {loading
