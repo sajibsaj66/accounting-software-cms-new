@@ -6,7 +6,6 @@ import useAuth from "@/hooks/useAuth";
 import {
   Box,
   Paper,
-  Grid,
   TextField,
   MenuItem,
   Button,
@@ -23,6 +22,12 @@ import PrintIcon from "@mui/icons-material/Print";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import {
+  showErrorAlert,
+  showSuccessAlert,
+  showWarningAlert,
+} from "@/lib/sweetAlert";
+import swal from "sweetalert";
 
 const SEARCH_TYPES = [
   { searchType: "All" },
@@ -51,9 +56,25 @@ const money = (n) =>
     maximumFractionDigits: 2,
   });
 
+const formatDateTime = (value) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Dhaka",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+};
+
 export default function QuotationRecord() {
   const authInfo = useAuth();
-  const API_URL = process.env.NEXT_PUBLIC_BASE_URL;
   const token = authInfo?.token || authInfo?.accessToken;
 
   const [selectedSearchType, setSelectedSearchType] = useState("All");
@@ -76,6 +97,7 @@ export default function QuotationRecord() {
   const [loading, setLoading] = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
   const [bootLoaded, setBootLoaded] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const requestConfig = useMemo(
     () => ({
@@ -134,41 +156,41 @@ export default function QuotationRecord() {
   }, [selectedSearchType, customers, products, employees, categories, users]);
 
   const loadFilterData = useCallback(async () => {
-    if (!API_URL || !token || selectedSearchType === "All") return;
+    if (!token || selectedSearchType === "All") return;
 
     setFilterLoading(true);
     try {
       if (selectedSearchType === "By Customer") {
         const res = await axios.post(
-          `${API_URL}/api/get-customers`,
+          "/api/get-customers",
           { "select-type": "active" },
           requestConfig
         );
         setCustomers(res?.data?.message || []);
       } else if (selectedSearchType === "By Product") {
         const res = await axios.post(
-          `${API_URL}/api/get-individual-products`,
+          "/api/get-individual-products",
           { "select-type": "active" },
           requestConfig
         );
         setProducts(res?.data?.message || []);
       } else if (selectedSearchType === "By Employee") {
         const res = await axios.post(
-          `${API_URL}/api/get-employees`,
+          "/api/get-employees",
           { "select-type": "active" },
           requestConfig
         );
         setEmployees(res?.data?.message || []);
       } else if (selectedSearchType === "By Category") {
         const res = await axios.post(
-          `${API_URL}/api/get-categories`,
+          "/api/get-categories",
           { "select-type": "active" },
           requestConfig
         );
         setCategories(res?.data?.message || []);
       } else if (selectedSearchType === "By User") {
         const res = await axios.post(
-          `${API_URL}/api/get-users`,
+          "/api/get-users",
           { "select-type": "active" },
           requestConfig
         );
@@ -179,7 +201,11 @@ export default function QuotationRecord() {
     } finally {
       setFilterLoading(false);
     }
-  }, [API_URL, token, selectedSearchType, requestConfig]);
+  }, [token, selectedSearchType, requestConfig]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setSelectedFilterValue("");
@@ -187,13 +213,19 @@ export default function QuotationRecord() {
   }, [selectedSearchType, loadFilterData]);
 
   const getSearchResult = useCallback(async () => {
-    if (!API_URL || !token) {
-      alert("Authentication invalid. Please login again.");
+    if (!token) {
+      await showWarningAlert(
+        "Authentication Required",
+        "Please login again before loading quotation records.",
+      );
       return;
     }
 
     if (selectedSearchType !== "All" && !selectedFilterValue) {
-      alert("Please select a filter value first.");
+      await showWarningAlert(
+        "Filter Required",
+        "Please select a filter value first.",
+      );
       return;
     }
 
@@ -223,11 +255,11 @@ export default function QuotationRecord() {
 
     let url =
       selectedRecordType === "Without Details"
-        ? `${API_URL}/api/get-quotations`
-        : `${API_URL}/api/get-quotation-with-details`;
+        ? "/api/get-quotations"
+        : "/api/get-quotation-with-details";
 
     if (selectedSearchType === "By Product" || selectedSearchType === "By Category") {
-      url = `${API_URL}/api/get-quotation-details`;
+      url = "/api/get-quotation-details";
     }
 
     setLoading(true);
@@ -303,12 +335,14 @@ export default function QuotationRecord() {
         error,
         response: error?.response?.data,
       });
-      alert(error?.response?.data?.message || "Failed to load report data.");
+      await showErrorAlert(
+        "Report Load Failed",
+        error?.response?.data?.message || "Failed to load report data.",
+      );
     } finally {
       setLoading(false);
     }
   }, [
-    API_URL,
     token,
     fromDate,
     toDate,
@@ -319,31 +353,57 @@ export default function QuotationRecord() {
   ]);
 
   useEffect(() => {
-    if (!API_URL || !token || bootLoaded) return;
+    if (!token || bootLoaded) return;
     setBootLoaded(true);
     getSearchResult();
-  }, [API_URL, token, bootLoaded, getSearchResult]);
+  }, [token, bootLoaded, getSearchResult]);
 
   const handleDelete = async (row) => {
     const saleId = row?.sale_id || row?.id || row?.saleId || row?.quotation_id || null;
     if (!saleId) {
-      alert("Quotation id not found.");
+      await showWarningAlert("Quotation Not Found", "Quotation id not found.");
       return;
     }
 
-    const confirmed = window.confirm("Are you sure you want to delete this quotation?");
+    const confirmed = await swal({
+      className: "premium-swal",
+      title: "Delete Quotation?",
+      text: "This quotation will be removed from the record list.",
+      icon: "warning",
+      buttons: {
+        cancel: {
+          text: "Cancel",
+          value: false,
+          visible: true,
+          className: "premium-swal-cancel",
+          closeModal: true,
+        },
+        confirm: {
+          text: "Delete",
+          value: true,
+          visible: true,
+          className: "premium-swal-danger",
+          closeModal: true,
+        },
+      },
+      dangerMode: true,
+    });
     if (!confirmed) return;
 
     try {
       await axios.post(
-        `${API_URL}/api/quotation-delete`,
+        "/api/quotation-delete",
         { saleId: Number(saleId) },
         requestConfig
       );
       await getSearchResult();
+      await showSuccessAlert("Quotation Deleted", "The quotation has been deleted.");
     } catch (error) {
       console.error("Delete failed", error);
-      alert(error?.response?.data?.message || "Delete failed");
+      await showErrorAlert(
+        "Delete Failed",
+        error?.response?.data?.message || "Delete failed",
+      );
     }
   };
 
@@ -388,6 +448,10 @@ export default function QuotationRecord() {
 
   const showFilterDropdown = selectedSearchType !== "All";
 
+  if (!mounted) {
+    return <div className="min-h-screen bg-[#f5f6f8]" />;
+  }
+
   return (
     <Box sx={{ p: 2, background: "#f5f6f8", minHeight: "100vh" }}>
       <Paper sx={{ p: 2 }}>
@@ -395,8 +459,20 @@ export default function QuotationRecord() {
           Quotation Record
         </Typography>
 
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={2}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              md: showFilterDropdown
+                ? "minmax(150px, 1fr) minmax(260px, 1.4fr) minmax(170px, 1fr) minmax(170px, 1fr) minmax(170px, 1fr) 100px"
+                : "minmax(150px, 1fr) minmax(170px, 1fr) minmax(170px, 1fr) minmax(170px, 1fr) 100px",
+            },
+            gap: 2,
+            alignItems: "center",
+          }}
+        >
+          <Box>
             <TextField
               fullWidth
               label="Search Type"
@@ -410,10 +486,10 @@ export default function QuotationRecord() {
                 </MenuItem>
               ))}
             </TextField>
-          </Grid>
+          </Box>
 
           {showFilterDropdown && (
-            <Grid item xs={12} md={4} lg={3}>
+            <Box>
               <TextField
                 fullWidth
                 label={selectedSearchType}
@@ -429,10 +505,10 @@ export default function QuotationRecord() {
                   </MenuItem>
                 ))}
               </TextField>
-            </Grid>
+            </Box>
           )}
 
-          <Grid item xs={12} md={2}>
+          <Box>
             <TextField
               fullWidth
               label="Record Type"
@@ -446,9 +522,9 @@ export default function QuotationRecord() {
                 </MenuItem>
               ))}
             </TextField>
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} md={2}>
+          <Box>
             <TextField
               fullWidth
               label="From Date"
@@ -457,8 +533,8 @@ export default function QuotationRecord() {
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
             />
-          </Grid>
-          <Grid item xs={12} md={2}>
+          </Box>
+          <Box>
             <TextField
               fullWidth
               label="To Date"
@@ -467,8 +543,8 @@ export default function QuotationRecord() {
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
             />
-          </Grid>
-          <Grid item xs={12} md={1}>
+          </Box>
+          <Box>
             <Button
               fullWidth
               variant="contained"
@@ -484,8 +560,8 @@ export default function QuotationRecord() {
             >
               {loading ? "..." : "GO"}
             </Button>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
         <Box sx={{ mt: 1, borderTop: "1px solid #d7d7d7", borderBottom: "1px solid #d7d7d7", py: 0.5 }}>
           <IconButton size="small">
@@ -579,7 +655,7 @@ export default function QuotationRecord() {
                             )}
                             {detailIdx === 0 && (
                               <TableCell rowSpan={details.length}>
-                                {row?.sale_created_isodt || row?.datetime || row?.date_time || "-"}
+                                {formatDateTime(row?.sale_created_isodt || row?.datetime || row?.date_time)}
                               </TableCell>
                             )}
                             {detailIdx === 0 && (
@@ -594,20 +670,22 @@ export default function QuotationRecord() {
                             <TableCell align="right">{Number(qty || 0).toLocaleString()}</TableCell>
                             <TableCell align="right">{money(lineTotal)}</TableCell>
                             {detailIdx === 0 && (
-                              <TableCell align="center" rowSpan={details.length}>
-                                <IconButton size="small">
-                                  <ReceiptLongIcon />
-                                </IconButton>
-                                <IconButton size="small" sx={{ color: "#5a8f1a" }}>
-                                  <EditIcon />
-                                </IconButton>
-                                <IconButton
-                                  size="small"
-                                  sx={{ color: "#e22f1f" }}
-                                  onClick={() => handleDelete(row)}
-                                >
-                                  <DeleteIcon />
-                                </IconButton>
+                              <TableCell align="center" rowSpan={details.length} sx={{ width: 96, minWidth: 96, px: 0.5, whiteSpace: "nowrap" }}>
+                                <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25 }}>
+                                  <IconButton size="small" sx={{ width: 28, height: 28, p: 0.25 }}>
+                                    <ReceiptLongIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton size="small" sx={{ width: 28, height: 28, p: 0.25, color: "#5a8f1a" }}>
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    sx={{ width: 28, height: 28, p: 0.25, color: "#e22f1f" }}
+                                    onClick={() => handleDelete(row)}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
                               </TableCell>
                             )}
                           </TableRow>
@@ -646,28 +724,30 @@ export default function QuotationRecord() {
                     <TableRow key={`${idx}-${row?.sale_id ?? row?.id ?? row?.category ?? "row"}`}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>{row?.sale_invoice || row?.invoice || "-"}</TableCell>
-                      <TableCell>{row?.sale_created_isodt || row?.datetime || row?.date_time || "-"}</TableCell>
+                      <TableCell>{formatDateTime(row?.sale_created_isodt || row?.datetime || row?.date_time)}</TableCell>
                       <TableCell>{row?.customer_name || row?.sale_customer_name || row?.customer || row?.category || "-"}</TableCell>
                       <TableCell align="right">{money(subtotal)}</TableCell>
                       <TableCell align="right">{money(discount)}</TableCell>
                       <TableCell align="right">{money(vat)}</TableCell>
                       <TableCell align="right">{money(transport)}</TableCell>
                       <TableCell align="right">{money(total)}</TableCell>
-                      <TableCell align="center">
-                        <IconButton size="small" disabled={selectedSearchType === "By Category"}>
-                          <ReceiptLongIcon />
-                        </IconButton>
-                        <IconButton size="small" sx={{ color: "#5a8f1a" }} disabled={selectedSearchType === "By Category"}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          sx={{ color: "#e22f1f" }}
-                          disabled={selectedSearchType === "By Category"}
-                          onClick={() => handleDelete(row)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
+                      <TableCell align="center" sx={{ width: 96, minWidth: 96, px: 0.5, whiteSpace: "nowrap" }}>
+                        <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25 }}>
+                          <IconButton size="small" sx={{ width: 28, height: 28, p: 0.25 }} disabled={selectedSearchType === "By Category"}>
+                            <ReceiptLongIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" sx={{ width: 28, height: 28, p: 0.25, color: "#5a8f1a" }} disabled={selectedSearchType === "By Category"}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            sx={{ width: 28, height: 28, p: 0.25, color: "#e22f1f" }}
+                            disabled={selectedSearchType === "By Category"}
+                            onClick={() => handleDelete(row)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   );

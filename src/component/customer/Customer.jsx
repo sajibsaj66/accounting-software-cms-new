@@ -15,7 +15,7 @@ export default function Customer({ search = "" }) {
         queryKey: ["sales-customers", token],
         queryFn: async () => {
             const res = await axios.get(
-                `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customers`,
+                "/api/get-sales-customers",
                 { headers: { "auth-token": token } },
             );
             return res?.data?.data ?? [];

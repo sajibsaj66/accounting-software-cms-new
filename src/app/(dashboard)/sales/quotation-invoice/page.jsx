@@ -29,13 +29,14 @@ import DownloadIcon from "@mui/icons-material/Download";
 
 const QuotationInvoice = () => {
   const authInfo = useAuth();
-  const API_URL = process.env.NEXT_PUBLIC_BASE_URL;
   const token = authInfo?.token || authInfo?.accessToken;
+  const [queryParams, setQueryParams] = useState({ saleId: "", invoice: "" });
+  const querySaleId = queryParams.saleId;
+  const queryInvoice = queryParams.invoice;
   const [invoiceNo, setInvoiceNo] = useState("");
   const [selectedSaleId, setSelectedSaleId] = useState("");
   const [invoiceOptions, setInvoiceOptions] = useState([]);
   const [quotationData, setQuotationData] = useState(null);
-  const [institutionData, setInstitutionData] = useState(null);
   const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [optionGroupA, setOptionGroupA] = useState("Option B");
   const [optionGroupB, setOptionGroupB] = useState("SKF");
@@ -52,10 +53,25 @@ const QuotationInvoice = () => {
   );
 
   useEffect(() => {
-    if (!API_URL || !token) return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setQueryParams({
+      saleId: params.get("saleId") || "",
+      invoice: params.get("invoice") || "",
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    if (querySaleId) setSelectedSaleId(String(querySaleId));
+    if (queryInvoice) setInvoiceNo(String(queryInvoice));
+  }, [querySaleId, queryInvoice, token]);
+
+  useEffect(() => {
+    if (!token) return;
     const loadInvoices = async () => {
       try {
-        const res = await axios.get(`${API_URL}/api/quotation-invoices`, requestConfig);
+        const res = await axios.post("/api/get-quotations", { reqPayload: {} }, requestConfig);
         const rows = Array.isArray(res?.data)
           ? res.data
           : Array.isArray(res?.data?.message)
@@ -63,41 +79,32 @@ const QuotationInvoice = () => {
           : [];
         setInvoiceOptions(rows);
         if (rows.length > 0) {
-          setInvoiceNo((prev) => prev || String(rows[0]?.sale_invoice || ""));
-          setSelectedSaleId((prev) => prev || String(rows[0]?.sale_id || ""));
+          const selected =
+            rows.find((row) => String(row?.sale_id) === String(querySaleId)) ||
+            rows.find((row) => String(row?.sale_invoice) === String(queryInvoice)) ||
+            rows[0];
+          const hasQuerySelection = Boolean(querySaleId || queryInvoice);
+          setInvoiceNo((prev) =>
+            hasQuerySelection ? String(selected?.sale_invoice || "") : prev || String(selected?.sale_invoice || "")
+          );
+          setSelectedSaleId((prev) =>
+            hasQuerySelection ? String(selected?.sale_id || "") : prev || String(selected?.sale_id || "")
+          );
         }
       } catch (error) {
-        console.error("[QuotationInvoice] /api/quotation-invoices failed", error);
+        console.error("[QuotationInvoice] /api/get-quotations failed", error);
       }
     };
     loadInvoices();
-  }, [API_URL, token, requestConfig]);
+  }, [queryInvoice, querySaleId, token, requestConfig]);
 
   useEffect(() => {
-    if (!API_URL || !token) return;
-    const loadInstitution = async () => {
-      try {
-        const res = await axios.get(`${API_URL}/api/get-institution`, requestConfig);
-        const rows = Array.isArray(res?.data?.message)
-          ? res.data.message
-          : Array.isArray(res?.data)
-          ? res.data
-          : [];
-        setInstitutionData(rows[0] || null);
-      } catch (error) {
-        console.error("[QuotationInvoice] /api/get-institution failed", error);
-      }
-    };
-    loadInstitution();
-  }, [API_URL, token, requestConfig]);
-
-  useEffect(() => {
-    if (!API_URL || !token || !selectedSaleId) return;
+    if (!token || !selectedSaleId) return;
     const loadQuotationInvoice = async () => {
       setLoadingInvoice(true);
       try {
         const res = await axios.post(
-          `${API_URL}/api/get-quotation-with-details`,
+          "/api/get-quotation-with-details",
           { reqPayload: { saleId: Number(selectedSaleId), from: "invoice" } },
           requestConfig
         );
@@ -114,7 +121,7 @@ const QuotationInvoice = () => {
       }
     };
     loadQuotationInvoice();
-  }, [API_URL, token, selectedSaleId, requestConfig]);
+  }, [token, selectedSaleId, requestConfig]);
 
   const details = Array.isArray(quotationData?.details) ? quotationData.details : [];
   const money = (n) =>
@@ -153,14 +160,17 @@ const QuotationInvoice = () => {
     const midpoint = Math.ceil(termsAndConditions.length / 2);
     return [termsAndConditions.slice(0, midpoint), termsAndConditions.slice(midpoint)];
   }, [termsAndConditions, showBrandHeaderFooter]);
-  const assetBase = typeof window !== "undefined" ? window.location.origin : "";
+  const selectedSaleIdInOptions = invoiceOptions.some(
+    (option) => String(option?.sale_id || "") === String(selectedSaleId)
+  );
+  const selectSaleIdValue = selectedSaleIdInOptions ? selectedSaleId : "";
   const brandMeta = {
     SKF: {
-      logo: `${assetBase}/skf-logo.svg`,
+      logo: "/skf-logo.svg",
       footerLine: "SKF Authorized Industrial Distributor",
     },
     NTN: {
-      logo: `${assetBase}/ntn-middle-east.svg`,
+      logo: "/ntn-middle-east.svg",
       footerLine: "NTN Authorized Industrial Distributor",
     },
   };
@@ -173,7 +183,7 @@ const QuotationInvoice = () => {
   const institutionPhoneLine =
     "Telephone: +88-02-47117674, 223386738, Mobile: +88 01711-843583, +88 01300-027111";
   const institutionEmailLine = "Email: nawabpur.sharifbearing@gmail.com";
-  const headerLogoSrc = `${assetBase}/sbm-header-logo.svg`;
+  const headerLogoSrc = "/sbm-header-logo.svg";
 
   const renderBrandHeader = (isPdf = false, className = "") =>
     showBrandHeaderFooter ? (
@@ -430,7 +440,7 @@ const QuotationInvoice = () => {
             <FormControl size="small" sx={{ width: { xs: "100%", sm: 480, md: 560 }, maxWidth: "30%" }}>
               <InputLabel>Choose Quotation Invoice</InputLabel>
               <Select
-                value={selectedSaleId}
+                value={selectSaleIdValue}
                 label="Choose Quotation Invoice"
                 onChange={(e) => {
                   const saleId = String(e.target.value);
@@ -503,7 +513,7 @@ const QuotationInvoice = () => {
               <Box sx={{ width: { xs: "100%", md: "48%" } }}>
                 <Typography><b>Customer ID :</b> {quotationData?.customer_code || quotationData?.customer_id || "-"}</Typography>
                 <Typography><b>Customer Name :</b> {quotationData?.customer_name || "-"}</Typography>
-                <Typography><b>Institution Name :</b> {quotationData?.customer_institution_name || institutionData?.institution_name || "-"}</Typography>
+                <Typography><b>Institution Name :</b> {quotationData?.customer_institution_name || "-"}</Typography>
                 <Typography><b>Customer Address :</b> {quotationData?.customer_address || "-"}</Typography>
                 <Typography><b>Customer Mobile :</b> {quotationData?.customer_mobile_no || "-"}</Typography>
               </Box>
@@ -582,7 +592,7 @@ const QuotationInvoice = () => {
               <Box sx={{ width: { xs: "100%", md: "48%" } }}>
                 <Typography><b>Customer ID :</b> {quotationData?.customer_code || quotationData?.customer_id || "-"}</Typography>
                 <Typography><b>Customer Name :</b> {quotationData?.customer_name || "-"}</Typography>
-                <Typography><b>Institution Name :</b> {quotationData?.customer_institution_name || institutionData?.institution_name || "-"}</Typography>
+                <Typography><b>Institution Name :</b> {quotationData?.customer_institution_name || "-"}</Typography>
                 <Typography><b>Customer Address :</b> {quotationData?.customer_address || "-"}</Typography>
                 <Typography><b>Customer Mobile :</b> {quotationData?.customer_mobile_no || "-"}</Typography>
               </Box>
@@ -712,7 +722,7 @@ const QuotationInvoice = () => {
             <Box sx={{ width: "48%" }}>
               <Typography><b>Customer ID :</b> {quotationData?.customer_code || quotationData?.customer_id || "-"}</Typography>
               <Typography><b>Customer Name :</b> {quotationData?.customer_name || "-"}</Typography>
-              <Typography><b>Institution Name :</b> {quotationData?.customer_institution_name || institutionData?.institution_name || "-"}</Typography>
+              <Typography><b>Institution Name :</b> {quotationData?.customer_institution_name || "-"}</Typography>
               <Typography><b>Customer Address :</b> {quotationData?.customer_address || "-"}</Typography>
               <Typography><b>Customer Mobile :</b> {quotationData?.customer_mobile_no || "-"}</Typography>
             </Box>

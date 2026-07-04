@@ -25,3 +25,79 @@ body {
   color: #111827;
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.premium-swal {
+  width: min(440px, calc(100vw - 32px));
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+  padding: 34px 32px 30px;
+}
+
+.premium-swal .swal-title {
+  margin: 12px 0 8px;
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.premium-swal .swal-text {
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.premium-swal .swal-footer {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.premium-swal-button {
+  min-width: 120px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #0f766e);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.28);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.premium-swal-button:not([disabled]):hover {
+  background: linear-gradient(135deg, #1d4ed8, #0f766e);
+}
+
+.premium-swal-danger {
+  min-width: 120px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  box-shadow: 0 14px 30px rgba(220, 38, 38, 0.28);
+  font-weight: 700;
+}
+
+.premium-swal-danger:not([disabled]):hover {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+}
+
+.premium-swal-cancel {
+  min-width: 110px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 700;
+}
+
+.premium-swal-cancel:not([disabled]):hover {
+  background: #cbd5e1;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}

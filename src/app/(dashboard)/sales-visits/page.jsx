@@ -8,6 +8,11 @@ import axios from "axios";
 import { Plus } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+    showErrorAlert,
+    showSuccessAlert,
+    showWarningAlert,
+} from "@/lib/sweetAlert";
 
 const DEFAULT_PRODUCT_CATEGORIES = ["Bearing", "Lubrication", "Belt"];
 const DEFAULT_PRODUCT_CATEGORY_ROWS = DEFAULT_PRODUCT_CATEGORIES.map((name, idx) => ({
@@ -226,7 +231,7 @@ export default function CreateVisitReport() {
     const { data: visitReportsData = [], isLoading } = useQuery({
     queryKey: ['get-sales-visits-reports', token],
         queryFn: async () => {
-            const res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customer-visit-reports`, { headers: { "auth-token": token } })
+            const res = await axios.get("/api/get-sales-customer-visit-reports", { headers: { "auth-token": token } })
             return res.data;
     },
         enabled: Boolean(token),
@@ -335,7 +340,7 @@ export default function CreateVisitReport() {
         const fetchCustomers = async () => {
             try {
                 const res = await axios.get(
-                    `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customers`,
+                    "/api/get-sales-customers",
                     { headers: { "auth-token": token } },
                 );
                 setCustomerOptions(res?.data?.data ?? []);
@@ -351,7 +356,7 @@ export default function CreateVisitReport() {
         const fetchProductCategories = async () => {
             try {
                 const res = await axios.get(
-                    `${process.env.NEXT_PUBLIC_BASE_URL}/get-product-categories`,
+                    "/api/get-product-categories",
                 );
 
                 setProductCategoryOptions(extractCategoryRows(res));
@@ -492,7 +497,7 @@ export default function CreateVisitReport() {
         setAddingCategory(true);
         try {
             const result = await axios.post(
-                `${process.env.NEXT_PUBLIC_BASE_URL}/create-product-category`,
+                "/api/create-product-category",
                 {
                     category_name: value,
                     status: "active",
@@ -516,7 +521,7 @@ export default function CreateVisitReport() {
 
             if (!newId) {
                 const refreshRes = await axios.get(
-                    `${process.env.NEXT_PUBLIC_BASE_URL}/get-product-categories`,
+                    "/api/get-product-categories",
                 );
                 const refreshRows = extractCategoryRows(refreshRes);
                 const matched = refreshRows.find((row) => {
@@ -548,9 +553,14 @@ export default function CreateVisitReport() {
                 product_category_id: newId,
             }));
             setCustomProductCategory("");
+            await showSuccessAlert(
+                "Category Added",
+                "The product category has been saved successfully.",
+            );
         } catch (error) {
             console.error("Failed to add product category:", error);
-            alert(
+            await showErrorAlert(
+                "Category Not Added",
                 error?.response?.data?.message ||
                     error?.message ||
                     "Failed to add product category",
@@ -590,17 +600,26 @@ export default function CreateVisitReport() {
         if (loading) return;
 
         if (!token) {
-            alert("Your session is not ready. Please wait a moment and try again.");
+            await showWarningAlert(
+                "Session Not Ready",
+                "Please wait a moment and try again.",
+            );
             return;
         }
 
         if (!form.visit_date || !form.sales_person_name || !form.customer_name) {
-            alert("Please fill all required fields");
+            await showWarningAlert(
+                "Required Fields Missing",
+                "Please fill all required fields before submitting.",
+            );
             return;
         }
 
         if (!form.next_plan || !form.status || !form.next_followup_date) {
-            alert("Please fill next plan, status and next follow-up date");
+            await showWarningAlert(
+                "Follow-up Details Missing",
+                "Please fill next plan, status and next follow-up date.",
+            );
             return;
         }
 
@@ -619,7 +638,10 @@ export default function CreateVisitReport() {
                 .filter((person) => Object.values(person).some(Boolean));
 
             if (!normalizedMeetingPersonsDetails.length) {
-                alert("Please add at least one meeting person");
+                await showWarningAlert(
+                    "Meeting Person Required",
+                    "Please add at least one meeting person.",
+                );
                 return;
             }
 
@@ -631,13 +653,17 @@ export default function CreateVisitReport() {
             );
 
             if (hasIncompleteMeetingPerson) {
-                alert("Each meeting person must include name, department and phone number");
+                await showWarningAlert(
+                    "Meeting Details Incomplete",
+                    "Each meeting person must include name, department and phone number.",
+                );
                 return;
             }
 
             const payload = {
                 visit_date: form.visit_date,
                 sales_person_name: form.sales_person_name,
+                assigned_sales_person_id: user?.id ? Number(user.id) : 0,
                 sales_person_area: form.sales_person_area,
                 customer_assignment: form.customer_assignment,
                 customer_name: form.customer_name,
@@ -665,12 +691,12 @@ export default function CreateVisitReport() {
 
             const result = editingReportId
                 ? await axios.patch(
-                      `${process.env.NEXT_PUBLIC_BASE_URL}/api/update-sales-customer-visit-report/${editingReportId}`,
+                      `/api/update-sales-customer-visit-report/${editingReportId}`,
                       payload,
                       requestConfig,
                    )
                 : await axios.post(
-                      `${process.env.NEXT_PUBLIC_BASE_URL}/api/create-sales-customer-visit-report`,
+                      "/api/create-sales-customer-visit-report",
                       payload,
                       requestConfig,
                    );
@@ -686,10 +712,11 @@ export default function CreateVisitReport() {
                 queryKey: ["get-sales-visits-reports", token],
             });
 
-            alert(
+            await showSuccessAlert(
+                editingReportId ? "Visit Report Updated" : "Visit Report Submitted",
                 editingReportId
-                    ? "✅ Visit report updated successfully"
-                    : "✅ Visit report submitted successfully",
+                    ? "Your visit report has been updated successfully."
+                    : "Your visit report has been submitted successfully.",
             );
 
             setForm({
@@ -729,7 +756,7 @@ export default function CreateVisitReport() {
                 err?.response?.data?.error ||
                 err?.message ||
                 "Submission failed";
-            alert("❌ " + message);
+            await showErrorAlert("Submission Failed", message);
         } finally {
             setLoading(false);
         }

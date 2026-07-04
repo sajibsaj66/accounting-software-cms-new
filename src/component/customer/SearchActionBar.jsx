@@ -5,6 +5,7 @@ import { Search, Filter, Plus } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { showErrorAlert, showSuccessAlert } from "@/lib/sweetAlert";
 
 export default function SearchActionBar({
   search,
@@ -53,7 +54,7 @@ export default function SearchActionBar({
 
         try {
   const res = await axios.post(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/api/create-sales-customers`,
+    "/api/create-sales-customers",
     payload,
     { headers: { "auth-token": token } }
   );
@@ -62,7 +63,10 @@ export default function SearchActionBar({
   
 
   if (!res.data.error) {
-    alert("Customer created successfully");
+    await showSuccessAlert(
+      "Customer Added",
+      "The customer has been saved successfully.",
+    );
     await queryClient.invalidateQueries({ queryKey: ["sales-customers"] });
     if (typeof onAddCustomer === "function") {
       onAddCustomer(payload);
@@ -76,18 +80,28 @@ export default function SearchActionBar({
   //  Server responded with error (400, 500 etc)
   if (error.response) {
     console.log("Server Error:", error.response.data);
-    alert(error.response.data.message);
+    await showErrorAlert(
+      "Customer Not Added",
+      error.response.data.message || "Failed to save customer.",
+    );
   }
 
   // Network error (server down)
   else if (error.request) {
     console.log("Network Error");
-    alert("Server is not responding");
+    await showErrorAlert(
+      "Server Not Responding",
+      "Please check the server connection and try again.",
+    );
   }
 
   //  Other error
   else {
     console.log("Error:", error.message);
+    await showErrorAlert(
+      "Customer Not Added",
+      error.message || "Something went wrong.",
+    );
   }
 }
 

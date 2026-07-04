@@ -25,6 +25,11 @@ import axios from "axios";
 import useAuth from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import {
+  showErrorAlert,
+  showSuccessAlert,
+  showWarningAlert,
+} from "@/lib/sweetAlert";
 
 const DRAFT_STORAGE_KEY = "quotation-entry-draft-v1";
 
@@ -78,11 +83,36 @@ export default function QuotationEntry() {
 
   const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
+  const normalizeNumberInput = (value) => {
+    const [integerPart, ...decimalParts] = String(value)
+      .replace(/[^\d.]/g, "")
+      .split(".");
+    const integer = integerPart.replace(/^0+(?=\d)/, "");
+
+    if (!decimalParts.length) return integer;
+    return `${integer || "0"}.${decimalParts.join("")}`;
+  };
+
   const getProductLabel = (option) =>
     `${option?.prod_code || ""} - ${option?.prod_brand_name || ""} - ${option?.prod_color_name || ""}`.trim();
 
+  const getProductName = (product) => {
+    const name = String(product?.prod_name || product?.name || "").trim();
+    if (name && name !== "0") return name;
+    return String(product?.prod_code || getProductLabel(product) || "").trim();
+  };
+
   const getCustomerLabel = (option) =>
     option?.customer_name || option?.display_text || option?.name || "";
+
+  const getEmployeeKey = (option) =>
+    `employee-${option?.employee_id ?? option?.id ?? option?.employee_name ?? "unknown"}`;
+
+  const getCustomerKey = (option) =>
+    `customer-${option?.customer_id ?? option?.id ?? option?.customer_mobile_no ?? getCustomerLabel(option)}`;
+
+  const getProductKey = (option) =>
+    `product-${option?.prod_id ?? option?.id ?? option?.prod_code ?? getProductLabel(option)}`;
 
   useEffect(() => {
     const subtotal = cart.reduce((sum, item) => sum + item.rate * item.qty, 0);
@@ -141,14 +171,8 @@ export default function QuotationEntry() {
     const payload = {
       productId: selectedProduct?.prod_id || selectedProduct?.id,
       prod_id: selectedProduct?.prod_id || selectedProduct?.id,
-      name:
-        selectedProduct?.prod_name ||
-        selectedProduct?.name ||
-        getProductLabel(selectedProduct),
-      prod_name:
-        selectedProduct?.prod_name ||
-        selectedProduct?.name ||
-        getProductLabel(selectedProduct),
+      name: getProductName(selectedProduct),
+      prod_name: getProductName(selectedProduct),
       brand: selectedProduct?.prod_brand_name || selectedProduct?.brand || "",
       unit: selectedProduct?.prod_unit_name || selectedProduct?.unit || "",
       prod_cat_name:
@@ -235,42 +259,42 @@ export default function QuotationEntry() {
 
   const handleDiscountAmount = (value) => {
     setDiscountMode("amount");
-    const amount = round2(value);
+    const amount = round2(normalizeNumberInput(value));
     setDiscount(amount);
     setDiscountPercent(subTotal > 0 ? round2((amount * 100) / subTotal) : 0);
   };
 
   const handleDiscountPercent = (value) => {
     setDiscountMode("percent");
-    const percent = round2(value);
+    const percent = round2(normalizeNumberInput(value));
     setDiscountPercent(percent);
     setDiscount(subTotal > 0 ? round2((subTotal * percent) / 100) : 0);
   };
 
   const handleVatAmount = (value) => {
     setVatMode("amount");
-    const amount = round2(value);
+    const amount = round2(normalizeNumberInput(value));
     setVat(amount);
     setVatPercent(subTotal > 0 ? round2((amount * 100) / subTotal) : 0);
   };
 
   const handleVatPercent = (value) => {
     setVatMode("percent");
-    const percent = round2(value);
+    const percent = round2(normalizeNumberInput(value));
     setVatPercent(percent);
     setVat(subTotal > 0 ? round2((subTotal * percent) / 100) : 0);
   };
 
   const handleAitAmount = (value) => {
     setAitMode("amount");
-    const amount = round2(value);
+    const amount = round2(normalizeNumberInput(value));
     setAit(amount);
     setAitPercent(subTotal > 0 ? round2((amount * 100) / subTotal) : 0);
   };
 
   const handleAitPercent = (value) => {
     setAitMode("percent");
-    const percent = round2(value);
+    const percent = round2(normalizeNumberInput(value));
     setAitPercent(percent);
     setAit(subTotal > 0 ? round2((subTotal * percent) / 100) : 0);
   };
@@ -307,11 +331,26 @@ export default function QuotationEntry() {
     .map((item) => item.label);
 
   const handleQuotationSubmit = async () => {
-    if (!cart.length) return alert("Please add at least one product to cart.");
-    if (!API_URL || !authInfo?.token) return alert("Authentication not valid, please login!");
-    if (!selectedEmployee?.employee_id) return alert("Quotation By (employee) select please");
-    if (!selectedCustomer?.customer_id) return alert("Customer select please");
-    if (!saleInvoice) return alert("Invoice no পাওয়া যায়নি, refresh দিয়ে আবার try করুন");
+    if (!cart.length) {
+      await showWarningAlert("Cart Empty", "Please add at least one product to cart.");
+      return;
+    }
+    if (!authInfo?.token) {
+      await showWarningAlert("Authentication Required", "Please login again before saving.");
+      return;
+    }
+    if (!selectedEmployee?.employee_id) {
+      await showWarningAlert("Employee Required", "Please select Quotation By employee.");
+      return;
+    }
+    if (!selectedCustomer?.customer_id) {
+      await showWarningAlert("Customer Required", "Please select a customer.");
+      return;
+    }
+    if (!saleInvoice) {
+      await showWarningAlert("Invoice Missing", "Invoice number not found. Please refresh and try again.");
+      return;
+    }
 
     // FIX: old backend schema অনুযায়ী payload
     const sale = {
@@ -356,17 +395,23 @@ export default function QuotationEntry() {
     setIsSaving(true);
     try {
       const res = await axios.post(
-        `${API_URL}/api/save-quotation`,
+        "/api/save-quotation",
         { sale, cart: cartPayload },
         { headers: { "auth-token": authInfo.token } }
       );
 
       if (res?.data?.error) {
-        alert(res?.data?.message?.msg || res?.data?.message || "Quotation save failed");
+        await showErrorAlert(
+          "Quotation Not Saved",
+          res?.data?.message?.msg || res?.data?.message || "Quotation save failed",
+        );
         return;
       }
 
-      alert(res?.data?.message?.msg || "Quotation saved successfully");
+      await showSuccessAlert(
+        "Quotation Saved",
+        res?.data?.message?.msg || "Quotation saved successfully.",
+      );
       const saved = res?.data?.message || {};
       const savedSaleId = saved?.sale_id || saved?.saleId || saved?.quotationId || "";
       const savedInvoice = saved?.sale_invoice || saleInvoice || "";
@@ -378,16 +423,19 @@ export default function QuotationEntry() {
         router.push("/sales/quotation-invoice");
       }
     } catch (error) {
-      alert(error?.response?.data?.message || "Quotation save failed");
+      await showErrorAlert(
+        "Quotation Not Saved",
+        error?.response?.data?.message || "Quotation save failed",
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
   const getInvoice = async () => {
-    if (!API_URL || !authInfo?.token) return;
+    if (!authInfo?.token) return;
     try {
-      const res = await axios.get(`${API_URL}/api/get-quotation-invoice`, {
+      const res = await axios.get("/api/get-quotation-invoice", {
         headers: { "auth-token": authInfo.token },
       });
       setSaleInvoice(res?.data?.message ?? "");
@@ -398,7 +446,7 @@ export default function QuotationEntry() {
 
   useEffect(() => {
     getInvoice();
-  }, [API_URL, authInfo?.token]);
+  }, [authInfo?.token]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -486,39 +534,39 @@ export default function QuotationEntry() {
     queryKey: ["employees", authInfo?.token],
     queryFn: async () => {
       const res = await axios.post(
-        `${API_URL}/api/get-employees`,
+        "/api/get-employees",
         { "select-type": "active" },
         { headers: { "auth-token": authInfo?.token } }
       );
       return res.data;
     },
-    enabled: Boolean(API_URL && authInfo?.token),
+    enabled: Boolean(authInfo?.token),
   });
 
   const { data: customersData } = useQuery({
     queryKey: ["customers", authInfo?.token],
     queryFn: async () => {
       const res = await axios.post(
-        `${API_URL}/api/get-customers`,
+        "/api/get-customers",
         { "select-type": "active" },
         { headers: { "auth-token": authInfo?.token } }
       );
       return res.data;
     },
-    enabled: Boolean(API_URL && authInfo?.token),
+    enabled: Boolean(authInfo?.token),
   });
 
   const { data: productsData } = useQuery({
     queryKey: ["products", authInfo?.token],
     queryFn: async () => {
       const res = await axios.post(
-        `${API_URL}/api/get-individual-products`,
+        "/api/get-individual-products",
         { "select-type": "active" },
         { headers: { "auth-token": authInfo?.token } }
       );
       return res.data;
     },
-    enabled: Boolean(API_URL && authInfo?.token),
+    enabled: Boolean(authInfo?.token),
   });
 
   const employees = employeesData?.message ?? [];
@@ -539,6 +587,7 @@ export default function QuotationEntry() {
             <Autocomplete
               sx={{ width: "100%", minWidth: { md: 380 } }}
               options={employees}
+              getOptionKey={getEmployeeKey}
               getOptionLabel={(option) => option?.employee_name || ""}
               value={selectedEmployee}
               onChange={(_, value) => setSelectedEmployee(value)}
@@ -592,6 +641,7 @@ export default function QuotationEntry() {
                 <Box sx={{ minWidth: 0 }}>
                   <Autocomplete
                     options={customers}
+                    getOptionKey={getCustomerKey}
                     getOptionLabel={getCustomerLabel}
                     value={selectedCustomer}
                     onChange={(_, value) => setSelectedCustomer(value)}
@@ -625,6 +675,7 @@ export default function QuotationEntry() {
                 <Box sx={{ minWidth: 0 }}>
                   <Autocomplete
                     options={products}
+                    getOptionKey={getProductKey}
                     getOptionLabel={getProductLabel}
                     value={selectedProduct}
                     onChange={(_, value) => {
@@ -753,9 +804,10 @@ export default function QuotationEntry() {
               <Grid item xs={6}>
                 <TextField
                   label="Current Due"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={currentDue}
-                  onChange={(e) => setCurrentDue(e.target.value)}
+                  onChange={(e) => setCurrentDue(normalizeNumberInput(e.target.value))}
                   fullWidth
                 />
               </Grid>
@@ -763,7 +815,8 @@ export default function QuotationEntry() {
               <Grid item xs={6}>
                 <TextField
                   label="Vat (TK)"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={vat}
                   onChange={(e) => handleVatAmount(e.target.value)}
                   fullWidth
@@ -772,7 +825,8 @@ export default function QuotationEntry() {
               <Grid item xs={6}>
                 <TextField
                   label="vat (%)"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={vatPercent}
                   onChange={(e) => handleVatPercent(e.target.value)}
                   fullWidth
@@ -782,7 +836,8 @@ export default function QuotationEntry() {
               <Grid item xs={6}>
                 <TextField
                   label="AIT (TK)"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={ait}
                   onChange={(e) => handleAitAmount(e.target.value)}
                   fullWidth
@@ -791,7 +846,8 @@ export default function QuotationEntry() {
               <Grid item xs={6}>
                 <TextField
                   label="AIT (%)"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={aitPercent}
                   onChange={(e) => handleAitPercent(e.target.value)}
                   fullWidth
@@ -801,7 +857,8 @@ export default function QuotationEntry() {
               <Grid item xs={6}>
                 <TextField
                   label="Discount(TK)"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={discount}
                   onChange={(e) => handleDiscountAmount(e.target.value)}
                   fullWidth
@@ -810,7 +867,8 @@ export default function QuotationEntry() {
               <Grid item xs={6}>
                 <TextField
                   label="Discount (%)"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={discountPercent}
                   onChange={(e) => handleDiscountPercent(e.target.value)}
                   fullWidth

@@ -15,12 +15,13 @@ export default function FollowUp() {
         queryKey: ["get-sales-visits-reports"],
         queryFn: async () => {
             const res = await axios.get(
-                `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customer-visit-reports`,
+                "/api/get-sales-customer-visit-reports",
                 { headers: { "auth-token": token } }
             );
             return res.data;
         },
         refetchOnWindowFocus: true,
+        enabled: Boolean(token),
     });
 
     const visits = visitReportsData?.data || [];

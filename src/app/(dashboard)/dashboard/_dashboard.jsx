@@ -14,14 +14,13 @@ const Dashboard = () => {
     const [loadingQuotations, setLoadingQuotations] = useState(false);
     const [totalQuotations, setTotalQuotations] = useState(0);
     const authInfo = useAuth();
-    const API_URL = process.env.NEXT_PUBLIC_BASE_URL;
     const token = authInfo?.token || authInfo?.accessToken;
 
     const { data: visitsResponse } = useQuery({
         queryKey: ["dashboard-get-sales-visits-reports", token],
         queryFn: async () => {
             const res = await axios.get(
-                `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customer-visit-reports`,
+                "/api/get-sales-customer-visit-reports",
                 { headers: { "auth-token": token } }
             );
             return res?.data;
@@ -39,7 +38,7 @@ const Dashboard = () => {
         queryKey: ["sales-customers", token],
         queryFn: async () => {
             const res = await axios.get(
-                `${process.env.NEXT_PUBLIC_BASE_URL}/api/get-sales-customers`,
+                "/api/get-sales-customers",
                 { headers: { "auth-token": token } }
             );
             return Array.isArray(res?.data?.data) ? res.data.data : [];
@@ -51,12 +50,12 @@ const Dashboard = () => {
     
 
     useEffect(() => {
-        if (!API_URL || !token) return;
+        if (!token) return;
         const fetchRecentQuotations = async () => {
             setLoadingQuotations(true);
             try {
                 const res = await axios.post(
-                    `${API_URL}/api/get-quotations`,
+                    "/api/get-quotations",
                     { reqPayload: { selectedSearchType: "All" } },
                     { headers: { "auth-token": token } }
                 );
@@ -72,7 +71,7 @@ const Dashboard = () => {
             }
         };
         fetchRecentQuotations();
-    }, [API_URL, token]);
+    }, [token]);
 
     return (
         <div className="space-y-6">
